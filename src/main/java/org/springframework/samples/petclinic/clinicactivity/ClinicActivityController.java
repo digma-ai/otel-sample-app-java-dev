@@ -54,6 +54,12 @@ public class ClinicActivityController implements InitializingBean {
 		return dataService.getActiveLogsRatio("errors");
 	}
 
+	// This ep is here to throw error
+	@GetMapping("active-warning-ratio")
+	public int getActiveWarningsRatio() {
+		return dataService.getActiveLogsRatio("warnings");
+	}
+
 	@PostMapping("/populate-logs")
     public ResponseEntity<String> populateData(@RequestParam(name = "count", defaultValue = "6000000") int count) {
         logger.info("Received request to populate {} clinic activity logs.", count);
