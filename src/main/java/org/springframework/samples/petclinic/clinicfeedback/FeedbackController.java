@@ -1,6 +1,11 @@
 package org.springframework.samples.petclinic.clinicfeedback;
 
+import io.opentelemetry.api.trace.Span;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.samples.petclinic.model.ClinicFeedback;
+import org.springframework.samples.petclinic.owner.Owner;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -36,8 +41,30 @@ public class FeedbackController {
 	}
 
 	@PostMapping("populate")
-	public String populateFeedbacks(@RequestParam(name = "count", defaultValue = "10000") int count) {
-		service.populate(count);
-		return "done";
+	public ResponseEntity<String> populateFeedbacks(@RequestParam(name = "count", defaultValue = "10000") int count) {
+		try{
+			service.populate(count);
+			return ResponseEntity.ok("Populated");
+		}
+		catch (Exception ex){
+			Span.current().recordException(ex);
+			return ResponseEntity.internalServerError().body(ex.getMessage());
+		}
+	}
+
+	@PostMapping("add")
+	public ResponseEntity<String> addFeedback(@RequestBody ClinicFeedback newFeedback, BindingResult result) {
+		if(result.hasErrors())
+			return ResponseEntity.badRequest().body("Failed to parsed request");
+
+		try{
+			service.add(newFeedback);
+			return ResponseEntity.ok("Inserted");
+		}
+		catch (Exception ex){
+			Span.current().recordException(ex);
+			return ResponseEntity.internalServerError().body(ex.getMessage());
+		}
+
 	}
 }

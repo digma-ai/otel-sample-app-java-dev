@@ -21,13 +21,15 @@ public class FeedbackService {
 
 	@WithSpan
 	public void populate(int numberOfDocs){
+		var feedbacks = new ArrayList<ClinicFeedback>();
 		for (int i = 0; i < numberOfDocs; i++) {
 			var feedback = new ClinicFeedback(
 				lorem.getEmail(),
 				lorem.getParagraphs(1, 3)
 			);
-			repository.save(feedback);
+			feedbacks.add(feedback);
 		}
+		repository.saveMultiple(feedbacks);
 	}
 
 	public long count() {
@@ -40,5 +42,9 @@ public class FeedbackService {
 
 	public List<ClinicFeedback> list(int page, int pageSize) {
 		return repository.findAll(Pageable.ofSize(pageSize).withPage(page));
+	}
+
+	public void add(ClinicFeedback newFeedback) {
+		repository.save(newFeedback);
 	}
 }
