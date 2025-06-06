@@ -22,4 +22,20 @@ public class ClinicFeedback {
 		this.comment = comment;
 		this.submittedAt = Instant.now();
 	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public void setUserEmail(String userEmail) {
+		this.userEmail = userEmail;
+	}
+
+	public void setComment(String comment) {
+		this.comment = comment;
+	}
+
+	public void setSubmittedAt(Instant submittedAt) {
+		this.submittedAt = submittedAt;
+	}
 }
