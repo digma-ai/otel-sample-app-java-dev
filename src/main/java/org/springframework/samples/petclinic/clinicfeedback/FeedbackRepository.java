@@ -54,7 +54,7 @@ public class FeedbackRepository
 		}
 	}
 
-	public void save(ClinicFeedback feedback) {
+	public void saveSingle(ClinicFeedback feedback) {
 		HttpResponse<String> response;
 		try {
 			String json = objectMapper.writeValueAsString(feedback);

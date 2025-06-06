@@ -45,6 +45,6 @@ public class FeedbackService {
 	}
 
 	public void add(ClinicFeedback newFeedback) {
-		repository.save(newFeedback);
+		repository.saveSingle(newFeedback);
 	}
 }
