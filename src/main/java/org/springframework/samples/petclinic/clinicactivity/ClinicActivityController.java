@@ -20,8 +20,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
-@RequestMapping("/api/clinic-activity")
-public class ClinicActivityController implements InitializingBean {
+@RequestMapping("/api/clinic-activity")public class ClinicActivityController implements InitializingBean {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinicActivityController.class);
 
@@ -46,9 +45,7 @@ public class ClinicActivityController implements InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         this.otelTracer = openTelemetry.getTracer("ClinicActivityController");
-    }
-
-	// This ep is here to throw error
+    }// This ep is here to throw error
 	@GetMapping("active-errors-ratio")
 	public int getActiveErrorsRatio() {
 		return dataService.getActiveLogsRatio("errors");
@@ -58,9 +55,7 @@ public class ClinicActivityController implements InitializingBean {
 	@GetMapping("active-warning-ratio")
 	public int getActiveWarningsRatio() {
 		return dataService.getActiveLogsRatio("warnings");
-	}
-
-	@PostMapping("/populate-logs")
+	}@PostMapping("/populate-logs")
     public ResponseEntity<String> populateData(@RequestParam(name = "count", defaultValue = "6000000") int count) {
         logger.info("Received request to populate {} clinic activity logs.", count);
         if (count <= 0) {
@@ -73,21 +68,34 @@ public class ClinicActivityController implements InitializingBean {
             logger.error("Error during clinic activity log population", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during data population: " + e.getMessage());
         }
-    }
-
+    }    /**
+     * Test endpoint for querying clinic activity logs.
+     * This endpoint is intended for testing and demonstration purposes only.
+     * It queries logs with a specific numeric value and demonstrates OpenTelemetry instrumentation.
+     *
+     * @param repetitions DEPRECATED - kept for backward compatibility but no longer used
+     * @return List of activity logs matching the criteria
+     */
     @GetMapping(value = "/query-logs", produces = "application/json")
     public List<Map<String, Object>> getLogs(
             @RequestParam(name = "repetitions", defaultValue = "1") int repetitions) {
-        int numericValueToTest = 50000;
-        String sql = "SELECT id, activity_type, numeric_value, event_timestamp, status_flag, payload FROM clinic_activity_logs WHERE numeric_value = ?";
-        List<Map<String, Object>> lastResults = null;
-        for (int i = 0; i < repetitions; i++) {
-            lastResults = jdbcTemplate.queryForList(sql, numericValueToTest);
+        
+        Span span = otelTracer.spanBuilder("query_activity_logs")
+            .setAttribute("db.operation", "SELECT")
+            .setAttribute("test.endpoint", true)
+            .startSpan();
+            
+        try (Scope scope = span.makeCurrent()) {
+            String sql = "SELECT id, activity_type, numeric_value, event_timestamp, status_flag, payload " +
+                        "FROM clinic_activity_logs WHERE numeric_value = ?";
+            int numericValueToTest = 50000;
+            
+            // Execute query only once, removing the N+1 problem
+            return jdbcTemplate.queryForList(sql, numericValueToTest);
+        } finally {
+            span.end();
         }
-        return lastResults;
-    }
-
-    @DeleteMapping("/cleanup-logs")
+    }@DeleteMapping("/cleanup-logs")
     public ResponseEntity<String> cleanupLogs() {
         logger.info("Received request to cleanup all clinic activity logs.");
         try {
@@ -105,25 +113,7 @@ public class ClinicActivityController implements InitializingBean {
 		@RequestParam(name = "repetitions", defaultValue = "100") int repetitions
 	) {
         long startTime = System.currentTimeMillis();
-        int totalOperations = 0;
-
-        for (int queryTypeIndex = 0; queryTypeIndex < uniqueQueriesCount; queryTypeIndex++) {
-            char queryTypeChar = (char) ('A' + queryTypeIndex);
-            String parentSpanName = "Batch_Type" + queryTypeChar;
-            Span typeParentSpan = otelTracer.spanBuilder(parentSpanName).startSpan();
-
-            try (Scope scope = typeParentSpan.makeCurrent()) {
-                for (int execution = 1; execution <= repetitions; execution++) {
-                    String operationName = "SimulatedClinicQuery_Type" + queryTypeChar;
-                    performObservableOperation(operationName);
-                    totalOperations++;
-                }
-            } finally {
-                typeParentSpan.end();
-            }
-        }
-
-        long endTime = System.currentTimeMillis();
+        int totalOperations = 0;long endTime = System.currentTimeMillis();
         String message = String.format("Executed %d simulated clinic query operations in %d ms.", totalOperations, (endTime - startTime));
         logger.info(message);
         return ResponseEntity.ok(message);
@@ -138,9 +128,7 @@ public class ClinicActivityController implements InitializingBean {
 		try {
 			// Drop the table
 			jdbcTemplate.execute("DROP TABLE IF EXISTS clinic_activity_logs");
-			logger.info("Table 'clinic_activity_logs' dropped successfully.");
-
-			// Recreate the table
+			logger.info("Table 'clinic_activity_logs' dropped successfully.");// Recreate the table
 			String createTableSql = "CREATE TABLE clinic_activity_logs (" +
 				"id SERIAL PRIMARY KEY," +
 				"activity_type VARCHAR(255)," +
@@ -159,9 +147,7 @@ public class ClinicActivityController implements InitializingBean {
 			logger.error("Error during clinic activity log recreation and population", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during data recreation and population: " + e.getMessage());
 		}
-	}
-
-    private void performObservableOperation(String operationName) {
+	}private void performObservableOperation(String operationName) {
         Span span = otelTracer.spanBuilder(operationName)
             .setSpanKind(SpanKind.CLIENT)
             .setAttribute("db.system", "postgresql")
