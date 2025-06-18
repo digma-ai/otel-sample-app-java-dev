@@ -20,8 +20,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
-@RequestMapping("/api/clinic-activity")
-public class ClinicActivityController implements InitializingBean {
+@RequestMapping("/api/clinic-activity")public class ClinicActivityController implements InitializingBean {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinicActivityController.class);
 
@@ -46,9 +45,7 @@ public class ClinicActivityController implements InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         this.otelTracer = openTelemetry.getTracer("ClinicActivityController");
-    }
-
-	// This ep is here to throw error
+    }// This ep is here to throw error
 	@GetMapping("active-errors-ratio")
 	public int getActiveErrorsRatio() {
 		return dataService.getActiveLogsRatio("errors");
@@ -58,9 +55,7 @@ public class ClinicActivityController implements InitializingBean {
 	@GetMapping("active-warning-ratio")
 	public int getActiveWarningsRatio() {
 		return dataService.getActiveLogsRatio("warnings");
-	}
-
-	@PostMapping("/populate-logs")
+	}@PostMapping("/populate-logs")
     public ResponseEntity<String> populateData(@RequestParam(name = "count", defaultValue = "6000000") int count) {
         logger.info("Received request to populate {} clinic activity logs.", count);
         if (count <= 0) {
@@ -73,21 +68,25 @@ public class ClinicActivityController implements InitializingBean {
             logger.error("Error during clinic activity log population", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during data population: " + e.getMessage());
         }
-    }
-
-    @GetMapping(value = "/query-logs", produces = "application/json")
-    public List<Map<String, Object>> getLogs(
-            @RequestParam(name = "repetitions", defaultValue = "1") int repetitions) {
-        int numericValueToTest = 50000;
-        String sql = "SELECT id, activity_type, numeric_value, event_timestamp, status_flag, payload FROM clinic_activity_logs WHERE numeric_value = ?";
-        List<Map<String, Object>> lastResults = null;
-        for (int i = 0; i < repetitions; i++) {
-            lastResults = jdbcTemplate.queryForList(sql, numericValueToTest);
-        }
-        return lastResults;
-    }
-
-    @DeleteMapping("/cleanup-logs")
+    }@Cacheable("activityLogs")
+@GetMapping(value = "/query-logs", produces = "application/json")
+public List<Map<String, Object>> getLogs(
+        @RequestParam(name = "repetitions", defaultValue = "1") int repetitions) {
+    int numericValueToTest = 50000;
+    String sql = "SELECT id, activity_type, numeric_value, event_timestamp, status_flag, payload FROM clinic_activity_logs WHERE numeric_value = ? ORDER BY id";
+    return jdbcTemplate.query(sql,
+            new Object[]{numericValueToTest},
+            (rs, rowNum) -> {
+                Map<String, Object> result = new HashMap<>();
+                result.put("id", rs.getLong("id"));
+                result.put("activity_type", rs.getString("activity_type"));
+                result.put("numeric_value", rs.getInt("numeric_value"));
+                result.put("event_timestamp", rs.getTimestamp("event_timestamp"));
+                result.put("status_flag", rs.getString("status_flag"));
+                result.put("payload", rs.getString("payload"));
+                return result;
+            });
+}@DeleteMapping("/cleanup-logs")
     public ResponseEntity<String> cleanupLogs() {
         logger.info("Received request to cleanup all clinic activity logs.");
         try {
@@ -105,9 +104,7 @@ public class ClinicActivityController implements InitializingBean {
 		@RequestParam(name = "repetitions", defaultValue = "100") int repetitions
 	) {
         long startTime = System.currentTimeMillis();
-        int totalOperations = 0;
-
-        for (int queryTypeIndex = 0; queryTypeIndex < uniqueQueriesCount; queryTypeIndex++) {
+        int totalOperations = 0;for (int queryTypeIndex = 0; queryTypeIndex < uniqueQueriesCount; queryTypeIndex++) {
             char queryTypeChar = (char) ('A' + queryTypeIndex);
             String parentSpanName = "Batch_Type" + queryTypeChar;
             Span typeParentSpan = otelTracer.spanBuilder(parentSpanName).startSpan();
@@ -121,9 +118,7 @@ public class ClinicActivityController implements InitializingBean {
             } finally {
                 typeParentSpan.end();
             }
-        }
-
-        long endTime = System.currentTimeMillis();
+        }long endTime = System.currentTimeMillis();
         String message = String.format("Executed %d simulated clinic query operations in %d ms.", totalOperations, (endTime - startTime));
         logger.info(message);
         return ResponseEntity.ok(message);
@@ -138,9 +133,7 @@ public class ClinicActivityController implements InitializingBean {
 		try {
 			// Drop the table
 			jdbcTemplate.execute("DROP TABLE IF EXISTS clinic_activity_logs");
-			logger.info("Table 'clinic_activity_logs' dropped successfully.");
-
-			// Recreate the table
+			logger.info("Table 'clinic_activity_logs' dropped successfully.");// Recreate the table
 			String createTableSql = "CREATE TABLE clinic_activity_logs (" +
 				"id SERIAL PRIMARY KEY," +
 				"activity_type VARCHAR(255)," +
@@ -159,9 +152,7 @@ public class ClinicActivityController implements InitializingBean {
 			logger.error("Error during clinic activity log recreation and population", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during data recreation and population: " + e.getMessage());
 		}
-	}
-
-    private void performObservableOperation(String operationName) {
+	}private void performObservableOperation(String operationName) {
         Span span = otelTracer.spanBuilder(operationName)
             .setSpanKind(SpanKind.CLIENT)
             .setAttribute("db.system", "postgresql")
