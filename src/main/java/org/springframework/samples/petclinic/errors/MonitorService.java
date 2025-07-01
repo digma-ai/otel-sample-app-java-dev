@@ -9,52 +9,61 @@ import org.springframework.stereotype.Component;
 
 import java.util.InvalidPropertiesFormatException;
 
-@Component
-public class MonitorService implements SmartLifecycle {
+@Componentpublic class MonitorService implements SmartLifecycle {
 
-	private boolean running = false;
+	private volatile boolean running = false;
 	private Thread backgroundThread;
 	@Autowired
 	private OpenTelemetry openTelemetry;
 
 	@Override
 	public void start() {
+		if (isRunning()) {
+			return;
+		}
+
 		var otelTracer = openTelemetry.getTracer("MonitorService");
 
 		running = true;
 		backgroundThread = new Thread(() -> {
-			while (running) {
-
+			while (!Thread.currentThread().isInterrupted() && running) {
+				Span span = null;
 				try {
 					Thread.sleep(5000);
-				} catch (InterruptedException e) {
-					throw new RuntimeException(e);
-				}
-				Span span = otelTracer.spanBuilder("monitor").startSpan();
-
-				try {
-
+					span = otelTracer.spanBuilder("monitor").startSpan();
 					System.out.println("Background service is running...");
 					monitor();
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					running = false;
+					break;
 				} catch (Exception e) {
-					span.recordException(e);
-					span.setStatus(StatusCode.ERROR);
+					if (span != null) {
+						span.recordException(e);
+						span.setStatus(StatusCode.ERROR);
+					}
+					System.err.println("Error in monitor service: " + e.getMessage());
 				} finally {
-					span.end();
+					if (span != null) {
+						span.end();
+					}
 				}
 			}
 		});
 
-		// Start the background thread
+		backgroundThread.setName("MonitorService-Thread");
 		backgroundThread.start();
 		System.out.println("Background service started.");
+	}private void monitor() {
+		if (!running) {
+			throw new IllegalStateException("Monitor service is not running");
+		}
+		try {
+			// Add monitoring logic here
+		} catch (Exception e) {
+			throw new MonitoringException("Failed to execute monitoring", e);
+		}
 	}
-
-	private void monitor() throws InvalidPropertiesFormatException {
-		Utils.throwException(IllegalStateException.class,"monitor failure");
-	}
-
-
 
 	@Override
 	public void stop() {
@@ -72,6 +81,6 @@ public class MonitorService implements SmartLifecycle {
 
 	@Override
 	public boolean isRunning() {
-		return false;
+		return running;
 	}
 }
