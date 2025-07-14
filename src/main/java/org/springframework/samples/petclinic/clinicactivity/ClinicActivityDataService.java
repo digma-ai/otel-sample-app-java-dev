@@ -411,8 +411,9 @@ public class ClinicActivityDataService {
      * Uses simple queries with large data transfers to keep I/O busy while minimizing CPU/Memory usage
      * Focuses on disk I/O bottlenecks that can be improved by faster storage or read replicas
      */
-    public void createIOIntensiveLoad(int durationMinutes) {
-        logger.warn("Starting I/O INTENSIVE load test for {} minutes - This will MAX OUT disk I/O operations!", durationMinutes);
+    public void createIOIntensiveLoad(int durationMinutes, int numThreads, int limit) {
+        logger.warn("Starting I/O INTENSIVE load test for {} minutes with {} threads and {} limit - This will MAX OUT disk I/O operations!", 
+                   durationMinutes, numThreads, limit);
         long startTime = System.currentTimeMillis();
         long endTime = startTime + (durationMinutes * 60 * 1000L);
 
@@ -420,16 +421,14 @@ public class ClinicActivityDataService {
             AtomicInteger globalOperationCount = new AtomicInteger(0);
             List<Thread> threads = new ArrayList<>();
 
-            // Use fewer threads than CPU intensive to minimize CPU usage (focus on I/O)
-            int numThreads = 6;
-            logger.info("Creating {} I/O intensive threads (fewer than CPU load to focus on disk I/O)...", numThreads);
+            logger.info("Creating {} I/O intensive threads with {} record limit per query...", numThreads, limit);
 
             // Create I/O intensive threads
             for (int t = 0; t < numThreads; t++) {
                 final int threadId = t;
                 Thread ioThread = new Thread(() -> {
                     try {
-                        executeIOIntensiveThread(threadId, endTime, globalOperationCount);
+                        executeIOIntensiveThread(threadId, endTime, globalOperationCount, limit);
                     } catch (Exception e) {
                         logger.error("Error in I/O intensive thread {}", threadId, e);
                     }
@@ -456,8 +455,8 @@ public class ClinicActivityDataService {
             }
 
             long actualEndTime = System.currentTimeMillis();
-            logger.warn("Completed I/O INTENSIVE load test in {} ms. Total operations: {}",
-                (actualEndTime - startTime), globalOperationCount.get());
+            logger.warn("Completed I/O INTENSIVE load test in {} ms with {} threads and {} limit. Total operations: {}",
+                (actualEndTime - startTime), numThreads, limit, globalOperationCount.get());
 
         } catch (Exception e) {
             logger.error("Error during I/O intensive load test", e);
@@ -465,12 +464,12 @@ public class ClinicActivityDataService {
         }
     }
 
-    private void executeIOIntensiveThread(int threadId, long endTime, AtomicInteger globalOperationCount) {
+    private void executeIOIntensiveThread(int threadId, long endTime, AtomicInteger globalOperationCount, int limit) {
         Random random = new Random();
         Faker faker = new Faker(new Locale("en-US"));
         int localOperationCount = 0;
 
-        logger.info("I/O Thread {} starting I/O intensive operations...", threadId);
+        logger.info("I/O Thread {} starting I/O intensive operations with {} record limit...", threadId, limit);
 
         while (System.currentTimeMillis() < endTime) {
 			try {
@@ -481,7 +480,7 @@ public class ClinicActivityDataService {
                             "FROM clinic_activity_logs " +
                             "WHERE LENGTH(payload) > 100 " +
 							"ORDER BY random()" +
-                            "LIMIT 350000");
+                            "LIMIT " + limit);
 
 
                 localOperationCount++;
