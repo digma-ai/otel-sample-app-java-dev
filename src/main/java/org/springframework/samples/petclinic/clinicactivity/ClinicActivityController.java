@@ -161,6 +161,56 @@ public class ClinicActivityController implements InitializingBean {
 		}
 	}
 
+	/**
+	 * 🔒 LOCK CONTENTION LOAD endpoint - Maximum database lock pressure
+	 * Creates lock contention scenarios with concurrent transactions and deadlock situations
+	 */
+	@PostMapping("/lock-contention-load")
+	public ResponseEntity<String> createLockContentionLoad(@RequestParam(name = "threads", defaultValue = "50") int threads,
+	                                                        @RequestParam(name = "duration", defaultValue = "300") int durationSeconds) {
+		logger.warn("Received request to create LOCK CONTENTION LOAD with {} threads for {} seconds - This will create MASSIVE lock contention!", threads, durationSeconds);
+		if (threads <= 0 || durationSeconds <= 0) {
+			return ResponseEntity.badRequest().body("Threads and duration must be positive integers.");
+		}
+		if (threads > 50) {
+			return ResponseEntity.badRequest().body("Too many threads for lock contention - maximum 50 to prevent system crash.");
+		}
+		if (durationSeconds > 300) {
+			return ResponseEntity.badRequest().body("Duration too long for lock contention - maximum 300 seconds to prevent system lockup.");
+		}
+		try {
+			dataService.createLockContentionLoad(threads, durationSeconds);
+			return ResponseEntity.ok("Successfully completed LOCK CONTENTION LOAD with " + threads + " threads for " + durationSeconds + " seconds - Locks were contended!");
+		} catch (Exception e) {
+			logger.error("Error during lock contention load", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during lock contention load: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * 💾 I/O INTENSIVE LOAD endpoint - Maximum I/O pressure (Read + Write)
+	 * Creates massive I/O operations with random access patterns to stress storage subsystem
+	 * Uses simple queries with large data transfers to keep I/O busy while minimizing CPU/Memory usage
+	 * Focuses on disk I/O bottlenecks that can be improved by faster storage or read replicas
+	 */
+	@PostMapping("/io-intensive-load")
+	public ResponseEntity<String> createIOIntensiveLoad(@RequestParam(name = "duration", defaultValue = "5") int durationMinutes) {
+		logger.warn("Received request to create I/O INTENSIVE LOAD for {} minutes - This will MAX OUT disk I/O operations!", durationMinutes);
+		if (durationMinutes <= 0) {
+			return ResponseEntity.badRequest().body("Duration must be a positive integer.");
+		}
+		if (durationMinutes > 60) {
+			return ResponseEntity.badRequest().body("Duration too high for I/O intensive load - maximum 60 minutes to prevent storage overload.");
+		}
+		try {
+			dataService.createIOIntensiveLoad(durationMinutes);
+			return ResponseEntity.ok("Successfully completed I/O INTENSIVE LOAD for " + durationMinutes + " minutes - Disk I/O was maxed out!");
+		} catch (Exception e) {
+			logger.error("Error during I/O intensive load", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during I/O intensive load: " + e.getMessage());
+		}
+	}
+
     private void performObservableOperation(String operationName) {
         Span span = otelTracer.spanBuilder(operationName)
             .setSpanKind(SpanKind.CLIENT)

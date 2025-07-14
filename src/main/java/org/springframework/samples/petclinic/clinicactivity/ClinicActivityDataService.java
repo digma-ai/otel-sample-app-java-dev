@@ -25,7 +25,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Random;
+import java.util.Map;
+import java.util.HashMap;
 
 @Service
 public class ClinicActivityDataService {
@@ -47,6 +53,7 @@ public class ClinicActivityDataService {
             "Emergency Alert", "Consultation Note", "Follow-up Reminder"
     );
     private final Random random = new Random();
+    private final ExecutorService executorService = Executors.newFixedThreadPool(8);
 
     @Autowired
     public ClinicActivityDataService(ClinicActivityLogRepository repository,
@@ -199,5 +206,311 @@ public class ClinicActivityDataService {
         }
         String escaped = value.replace("\"", "\"\"").replace("\\", "\\\\");
         return '"' + escaped + '"';
+    }
+    /**
+     * 5. LOCK CONTENTION LOAD - Maximum database lock pressure and concurrent access
+     * Creates lock contention scenarios with multiple threads competing for same resources
+     */
+    public void createLockContentionLoad(int numberOfThreads, int durationSeconds) {
+        logger.warn("Starting LOCK CONTENTION load test with {} threads for {} seconds - This will create MASSIVE lock contention!",
+            numberOfThreads, durationSeconds);
+        long startTime = System.currentTimeMillis();
+        long endTime = startTime + (durationSeconds * 1000L);
+
+        try {
+            // Create a shared list to track thread results
+            List<String> threadResults = new ArrayList<>();
+            List<Thread> threads = new ArrayList<>();
+
+            // Create multiple competing threads
+            for (int t = 0; t < numberOfThreads; t++) {
+                final int threadId = t;
+                Thread lockContentionThread = new Thread(() -> {
+                    try {
+                        createLockContentionForThread(threadId, endTime, threadResults);
+                    } catch (Exception e) {
+                        logger.error("Error in lock contention thread {}", threadId, e);
+                    }
+                });
+
+                lockContentionThread.setName("LockContentionThread-" + threadId);
+                threads.add(lockContentionThread);
+            }
+
+            // Start all threads simultaneously
+            logger.info("Starting {} lock contention threads...", numberOfThreads);
+            for (Thread thread : threads) {
+                thread.start();
+            }
+
+            // Wait for all threads to complete
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.warn("Interrupted while waiting for thread: {}", thread.getName());
+                }
+            }
+
+            long actualEndTime = System.currentTimeMillis();
+            logger.warn("Completed LOCK CONTENTION load test in {} ms with {} threads. Results: {}",
+                (actualEndTime - startTime), numberOfThreads, threadResults.size());
+
+        } catch (Exception e) {
+            logger.error("Error during lock contention load test", e);
+            throw new RuntimeException("Error during lock contention load test: " + e.getMessage(), e);
+        }
+    }
+
+    private void createLockContentionForThread(int threadId, long endTime, List<String> threadResults) {
+        Faker faker = new Faker(new Locale("en-US"));
+        int operationCount = 0;
+
+        while (System.currentTimeMillis() < endTime) {
+            DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+            def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+            // Vary isolation levels to create different lock behaviors
+            switch (threadId % 4) {
+                case 0:
+                    def.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+                    break;
+                case 1:
+                    def.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+                    break;
+                case 2:
+                    def.setIsolationLevel(TransactionDefinition.ISOLATION_SERIALIZABLE);
+                    break;
+                default:
+                    def.setIsolationLevel(TransactionDefinition.ISOLATION_READ_UNCOMMITTED);
+                    break;
+            }
+
+            TransactionStatus status = transactionManager.getTransaction(def);
+
+            try {
+                // Strategy 1: Compete for same high-value records (guaranteed contention)
+                if (operationCount % 5 == 0) {
+                    // All threads fight for the same "high value" records
+                    List<Map<String, Object>> contestedRecords = jdbcTemplate.queryForList(
+                        "SELECT * FROM clinic_activity_logs WHERE numeric_value BETWEEN 90000 AND 100000 " +
+                        "ORDER BY numeric_value DESC LIMIT 10 FOR UPDATE");
+
+                    // Update these contested records
+                    for (Map<String, Object> record : contestedRecords) {
+                        jdbcTemplate.update(
+                            "UPDATE clinic_activity_logs SET payload = ?, numeric_value = ? WHERE id = ?",
+                            "CONTESTED_UPDATE_THREAD_" + threadId + "_OP_" + operationCount + " " + faker.lorem().sentence(20),
+                            faker.number().numberBetween(90000, 100000),
+                            record.get("id"));
+                    }
+                }
+
+                // Strategy 2: Create deadlock scenarios (lock ordering conflicts)
+                else if (operationCount % 5 == 1) {
+                    if (threadId % 2 == 0) {
+                        // Even threads: Lock A then B
+                        jdbcTemplate.queryForList(
+                            "SELECT * FROM clinic_activity_logs WHERE id BETWEEN 1 AND 50 ORDER BY id FOR UPDATE");
+                        Thread.sleep(10); // Small delay to increase deadlock chance
+                        jdbcTemplate.queryForList(
+                            "SELECT * FROM clinic_activity_logs WHERE id BETWEEN 51 AND 100 ORDER BY id FOR UPDATE");
+                    } else {
+                        // Odd threads: Lock B then A (reverse order = deadlock risk)
+                        jdbcTemplate.queryForList(
+                            "SELECT * FROM clinic_activity_logs WHERE id BETWEEN 51 AND 100 ORDER BY id DESC FOR UPDATE");
+                        Thread.sleep(10);
+                        jdbcTemplate.queryForList(
+                            "SELECT * FROM clinic_activity_logs WHERE id BETWEEN 1 AND 50 ORDER BY id DESC FOR UPDATE");
+                    }
+                }
+
+                // Strategy 3: Table-level lock contention
+                else if (operationCount % 5 == 2) {
+                    // Force table scan with update (creates many row locks)
+                    jdbcTemplate.update(
+                        "UPDATE clinic_activity_logs SET payload = payload || ? WHERE activity_type = ? AND LENGTH(payload) < 5000",
+                        " [THREAD_" + threadId + "_SCAN_UPDATE]",
+                        ACTIVITY_TYPES.get(threadId % ACTIVITY_TYPES.size()));
+                }
+
+                // Strategy 4: Bulk operations causing lock escalation
+                else if (operationCount % 5 == 3) {
+                    // Large batch update (may cause lock escalation)
+                    jdbcTemplate.update(
+                        "UPDATE clinic_activity_logs SET numeric_value = numeric_value + ? " +
+                        "WHERE activity_type = ? AND numeric_value BETWEEN ? AND ?",
+                        threadId,
+                        ACTIVITY_TYPES.get(threadId % ACTIVITY_TYPES.size()),
+                        threadId * 10000,
+                        (threadId + 1) * 10000);
+                }
+
+                // Strategy 5: Long-running transaction with many locks
+                else {
+                    // Hold multiple locks for extended period
+                    for (int i = 0; i < 20; i++) {
+                        int targetId = (threadId * 1000 + i) % 10000 + 1;
+                        jdbcTemplate.queryForList(
+                            "SELECT * FROM clinic_activity_logs WHERE id = ? FOR UPDATE", targetId);
+
+                        jdbcTemplate.update(
+                            "UPDATE clinic_activity_logs SET payload = ? WHERE id = ?",
+                            "LONG_RUNNING_THREAD_" + threadId + "_LOCK_" + i + " " + faker.lorem().sentence(10),
+                            targetId);
+
+                        if (i % 5 == 0) {
+                            Thread.sleep(5); // Hold locks longer
+                        }
+                    }
+                }
+
+                transactionManager.commit(status);
+                operationCount++;
+
+                // Add random small delays to vary timing
+                if (operationCount % 10 == 0) {
+                    Thread.sleep(faker.number().numberBetween(1, 10));
+                }
+
+            } catch (Exception e) {
+                if (!status.isCompleted()) {
+                    transactionManager.rollback(status);
+                }
+
+                // Log deadlocks and lock timeouts (these are expected!)
+                if (e.getMessage() != null &&
+                    (e.getMessage().contains("deadlock") ||
+                     e.getMessage().contains("lock") ||
+                     e.getMessage().contains("timeout"))) {
+                    logger.debug("Expected lock contention in thread {}: {}", threadId, e.getMessage());
+                } else {
+                    logger.error("Unexpected error in lock contention thread {}", threadId, e);
+                }
+
+                try {
+                    Thread.sleep(5); // Brief pause after error
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+
+        synchronized (threadResults) {
+            threadResults.add("Thread-" + threadId + ": " + operationCount + " operations");
+        }
+
+        logger.info("Lock contention thread {} completed {} operations", threadId, operationCount);
+    }
+
+    /**
+     * 6. I/O INTENSIVE LOAD - Maximum disk I/O pressure with minimal CPU/Memory usage
+     * Creates massive I/O operations with random access patterns to stress storage subsystem
+     * Uses simple queries with large data transfers to keep I/O busy while minimizing CPU/Memory usage
+     * Focuses on disk I/O bottlenecks that can be improved by faster storage or read replicas
+     */
+    public void createIOIntensiveLoad(int durationMinutes) {
+        logger.warn("Starting I/O INTENSIVE load test for {} minutes - This will MAX OUT disk I/O operations!", durationMinutes);
+        long startTime = System.currentTimeMillis();
+        long endTime = startTime + (durationMinutes * 60 * 1000L);
+
+        try {
+            AtomicInteger globalOperationCount = new AtomicInteger(0);
+            List<Thread> threads = new ArrayList<>();
+
+            // Use fewer threads than CPU intensive to minimize CPU usage (focus on I/O)
+            int numThreads = 6;
+            logger.info("Creating {} I/O intensive threads (fewer than CPU load to focus on disk I/O)...", numThreads);
+
+            // Create I/O intensive threads
+            for (int t = 0; t < numThreads; t++) {
+                final int threadId = t;
+                Thread ioThread = new Thread(() -> {
+                    try {
+                        executeIOIntensiveThread(threadId, endTime, globalOperationCount);
+                    } catch (Exception e) {
+                        logger.error("Error in I/O intensive thread {}", threadId, e);
+                    }
+                });
+
+                ioThread.setName("IOIntensiveThread-" + threadId);
+                threads.add(ioThread);
+            }
+
+            // Start all threads
+            logger.info("Starting all {} I/O intensive threads...", numThreads);
+            for (Thread thread : threads) {
+                thread.start();
+            }
+
+            // Wait for all threads to complete
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.warn("Interrupted while waiting for I/O thread: {}", thread.getName());
+                }
+            }
+
+            long actualEndTime = System.currentTimeMillis();
+            logger.warn("Completed I/O INTENSIVE load test in {} ms. Total operations: {}",
+                (actualEndTime - startTime), globalOperationCount.get());
+
+        } catch (Exception e) {
+            logger.error("Error during I/O intensive load test", e);
+            throw new RuntimeException("Error during I/O intensive load test: " + e.getMessage(), e);
+        }
+    }
+
+    private void executeIOIntensiveThread(int threadId, long endTime, AtomicInteger globalOperationCount) {
+        Random random = new Random();
+        Faker faker = new Faker(new Locale("en-US"));
+        int localOperationCount = 0;
+
+        logger.info("I/O Thread {} starting I/O intensive operations...", threadId);
+
+        while (System.currentTimeMillis() < endTime) {
+			try {
+                        // LARGE SEQUENTIAL SCAN - Forces full table scan I/O
+                        jdbcTemplate.queryForList(
+                            "SET work_mem = '512MB';" +
+								"SELECT id, activity_type, numeric_value, event_timestamp, payload " +
+                            "FROM clinic_activity_logs " +
+                            "WHERE LENGTH(payload) > 100 " +
+							"ORDER BY random()" +
+                            "LIMIT 350000");
+
+
+                localOperationCount++;
+                int currentGlobalCount = globalOperationCount.incrementAndGet();
+
+                // Log progress every 100 operations per thread
+                if (localOperationCount % 100 == 0) {
+                    long remainingTime = (endTime - System.currentTimeMillis()) / 1000;
+                    logger.info("I/O Thread {} completed {} operations (Global: {}). Time remaining: {}s",
+                        threadId, localOperationCount, currentGlobalCount, remainingTime);
+                }
+
+                // No sleep - continuous I/O operations for maximum I/O pressure
+                // But avoid overwhelming the system with a tiny yield
+                if (localOperationCount % 50 == 0) {
+                    Thread.yield();
+                }
+
+            } catch (Exception e) {
+                logger.error("Error in I/O operation for thread {}", threadId, e);
+                try {
+                    Thread.sleep(10); // Brief pause on error
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+
+        logger.info("I/O Thread {} completed {} total I/O operations", threadId, localOperationCount);
     }
 }
