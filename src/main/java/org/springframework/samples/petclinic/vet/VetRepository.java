@@ -21,8 +21,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.Repository;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Collection;
+import org.springframework.data.jpa.repository.EntityGraph;import java.util.Collection;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 /**
  * Repository class for <code>Vet</code> domain objects All method names are compliant
@@ -34,7 +34,8 @@ import java.util.Collection;
  * @author Juergen Hoeller
  * @author Sam Brannen
  * @author Michael Isvy
- */
+ */import org.springframework.data.jpa.repository.EntityGraph;
+
 public interface VetRepository extends Repository<Vet, Integer> {
 
 	/**
@@ -43,6 +44,7 @@ public interface VetRepository extends Repository<Vet, Integer> {
 	 */
 	@Transactional(readOnly = true)
 	@Cacheable("vets")
+	@EntityGraph(value = "Vet.specialties")
 	Collection<Vet> findAll() throws DataAccessException;
 
 	/**
@@ -53,6 +55,7 @@ public interface VetRepository extends Repository<Vet, Integer> {
 	 */
 	@Transactional(readOnly = true)
 	@Cacheable("vets")
+	@EntityGraph(value = "Vet.specialties")
 	Page<Vet> findAll(Pageable pageable) throws DataAccessException;
 
 }
