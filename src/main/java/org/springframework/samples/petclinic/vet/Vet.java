@@ -23,13 +23,13 @@ import java.util.Set;
 
 import org.springframework.beans.support.MutableSortDefinition;
 import org.springframework.beans.support.PropertyComparator;
-import org.springframework.samples.petclinic.model.Person;
-
-import jakarta.persistence.Entity;
+import org.springframework.samples.petclinic.model.Person;import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.NamedEntityGraph;
+import jakarta.persistence.NamedAttributeNode;
 import jakarta.persistence.Table;
 import jakarta.xml.bind.annotation.XmlElement;
 
@@ -43,9 +43,12 @@ import jakarta.xml.bind.annotation.XmlElement;
  */
 @Entity
 @Table(name = "vets")
+@NamedEntityGraph(name = "Vet.specialties",
+    attributeNodes = @NamedAttributeNode("specialties"))@NamedEntityGraph(name = "Vet.specialties",
+    attributeNodes = @NamedAttributeNode("specialties"))
 public class Vet extends Person {
 
-	@ManyToMany(fetch = FetchType.EAGER)
+	@ManyToMany(fetch = FetchType.LAZY)
 	@JoinTable(name = "vet_specialties", joinColumns = @JoinColumn(name = "vet_id"),
 			inverseJoinColumns = @JoinColumn(name = "specialty_id"))
 	private Set<Specialty> specialties;
