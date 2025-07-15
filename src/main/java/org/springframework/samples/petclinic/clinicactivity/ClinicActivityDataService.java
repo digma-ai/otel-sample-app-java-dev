@@ -1,6 +1,4 @@
-package org.springframework.samples.petclinic.clinicactivity;
-
-import com.github.javafaker.Faker;
+package org.springframework.samples.petclinic.clinicactivity;import com.github.javafaker.Faker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,15 +18,11 @@ import org.postgresql.copy.CopyManager;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
+import java.time.format.DateTimeFormatter;import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-import java.util.Random;
-
-@Service
-public class ClinicActivityDataService {
+import java.util.Random;@Servicepublic class ClinicActivityDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinicActivityDataService.class);
     private static final int BATCH_SIZE = 1000;
@@ -46,9 +40,7 @@ public class ClinicActivityDataService {
             "Payment Processing", "Inventory Check", "Staff Shift Start", "Staff Shift End",
             "Emergency Alert", "Consultation Note", "Follow-up Reminder"
     );
-    private final Random random = new Random();
-
-    @Autowired
+    private final Random random = new Random();@Autowired
     public ClinicActivityDataService(ClinicActivityLogRepository repository,
                                      JdbcTemplate jdbcTemplate,
                                      DataSource dataSource,
@@ -61,12 +53,23 @@ public class ClinicActivityDataService {
 
     @Transactional
     public int getActiveLogsRatio(String type) {
-		var all = repository.countLogsByType(type);
-		var active = repository.countActiveLogsByType(type);
-		return active/all;
-    }
-
-    @Transactional
+        log.debug("Calculating active logs ratio for type: {}", type);
+        try {
+            var all = repository.countLogsByType(type);
+            var active = repository.countActiveLogsByType(type);
+            
+            if (all == 0) {
+                log.debug("No logs found for type: {}", type);
+                return 0;
+            }
+            
+            log.debug("Found {} total logs and {} active logs", all, active);
+            return active / all;
+        } catch (Exception e) {
+            log.error("Error calculating active logs ratio for type: {}", type, e);
+            throw new RuntimeException("Failed to calculate active logs ratio", e);
+        }
+    }@Transactional
     public void cleanupActivityLogs() {
         logger.info("Received request to clean up all clinic activity logs.");
         long startTime = System.currentTimeMillis();
@@ -78,9 +81,7 @@ public class ClinicActivityDataService {
             logger.error("Error during clinic activity log cleanup", e);
             throw new RuntimeException("Error cleaning up activity logs: " + e.getMessage(), e);
         }
-    }
-
-    @Transactional
+    }@Transactional
     public void populateData(int totalEntries) {
         long startTime = System.currentTimeMillis();
         Connection con = null;
@@ -88,9 +89,7 @@ public class ClinicActivityDataService {
             con = DataSourceUtils.getConnection(dataSource);
             String databaseProductName = con.getMetaData().getDatabaseProductName();
             DataSourceUtils.releaseConnection(con, dataSource);
-            con = null;
-
-            if ("PostgreSQL".equalsIgnoreCase(databaseProductName)) {
+            con = null;if ("PostgreSQL".equalsIgnoreCase(databaseProductName)) {
                 logger.info("Using PostgreSQL COPY for data population of {} entries.", totalEntries);
                 populateDataWithCopyToNewTransaction(totalEntries);
             } else {
@@ -105,11 +104,8 @@ public class ClinicActivityDataService {
                  DataSourceUtils.releaseConnection(con, dataSource);
             }
         }
-        long endTime = System.currentTimeMillis();
-        logger.info("Finished data population for {} clinic activity logs in {} ms.", totalEntries, (endTime - startTime));
-    }
-
-    private void populateDataWithCopyToNewTransaction(int totalEntries) throws Exception {
+        long endTime = System.currentTimeMillis();logger.info("Finished data population for {} clinic activity logs in {} ms.", totalEntries, (endTime - startTime));
+    }private void populateDataWithCopyToNewTransaction(int totalEntries) throws Exception {
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
         def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         TransactionStatus status = transactionManager.getTransaction(def);
@@ -119,9 +115,7 @@ public class ClinicActivityDataService {
             Faker faker = new Faker(new Locale("en-US"));
             DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             StringBuilder sb = new StringBuilder();
-            CopyManager copyManager = connection.unwrap(PGConnection.class).getCopyAPI();
-
-            for (int i = 0; i < totalEntries; i++) {
+            CopyManager copyManager = connection.unwrap(PGConnection.class).getCopyAPI();for (int i = 0; i < totalEntries; i++) {
                 String activityType = ACTIVITY_TYPES.get(random.nextInt(ACTIVITY_TYPES.size()));
                 int numericVal = faker.number().numberBetween(1, 100_000);
                 String ts = dtf.format(LocalDateTime.ofInstant(
@@ -133,9 +127,7 @@ public class ClinicActivityDataService {
                   .append(numericVal).append(',')
                   .append(csv(ts)).append(',')
                   .append(statusFlag).append(',')
-                  .append(csv(payload)).append('\n');
-
-                if ((i + 1) % COPY_FLUSH_EVERY == 0 || (i + 1) == totalEntries) {
+                  .append(csv(payload)).append('\n');if ((i + 1) % COPY_FLUSH_EVERY == 0 || (i + 1) == totalEntries) {
                     copyManager.copyIn("COPY clinic_activity_logs (activity_type, numeric_value, event_timestamp, status_flag, payload) FROM STDIN WITH (FORMAT csv)", new java.io.StringReader(sb.toString()));
                     sb.setLength(0);
                     if (logger.isInfoEnabled()){
@@ -155,9 +147,7 @@ public class ClinicActivityDataService {
                 DataSourceUtils.releaseConnection(connection, dataSource);
             }
         }
-    }
-
-    private void populateDataWithJdbcBatchInNewTransaction(int totalEntries) {
+    }private void populateDataWithJdbcBatchInNewTransaction(int totalEntries) {
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
         def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         TransactionStatus status = transactionManager.getTransaction(def);
@@ -169,8 +159,7 @@ public class ClinicActivityDataService {
                 for (int j = 0; j < BATCH_SIZE && i < totalEntries; j++, i++) {
                     String activityType = ACTIVITY_TYPES.get(random.nextInt(ACTIVITY_TYPES.size()));
                     int numericVal = faker.number().numberBetween(1, 100_000);
-                    Timestamp eventTimestamp = Timestamp.from(
-                        faker.date().past(5 * 365, TimeUnit.DAYS).toInstant().atZone(ZoneId.systemDefault()).toInstant()
+                    Timestamp eventTimestamp = Timestamp.from(faker.date().past(5 * 365, TimeUnit.DAYS).toInstant().atZone(ZoneId.systemDefault()).toInstant()
                     );
                     boolean statusFlag = faker.bool().bool();
                     String payload = String.join(" ", faker.lorem().paragraphs(faker.number().numberBetween(1, 3)));
@@ -187,13 +176,10 @@ public class ClinicActivityDataService {
         } catch (Exception e) {
             if (!status.isCompleted()) {
                 transactionManager.rollback(status);
-            }
-            logger.error("Error during JDBC batch population with new transaction", e);
+            }logger.error("Error during JDBC batch population with new transaction", e);
             throw new RuntimeException("Error during JDBC batch population with new transaction: " + e.getMessage(), e);
         }
-    }
-
-    private String csv(String value) {
+    }private String csv(String value) {
         if (value == null) {
             return "";
         }
