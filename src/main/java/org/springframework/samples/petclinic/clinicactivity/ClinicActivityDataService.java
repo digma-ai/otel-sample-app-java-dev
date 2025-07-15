@@ -52,30 +52,13 @@ import java.util.Random;@Servicepublic class ClinicActivityDataService {
     }
 
     @Transactional
-    public double getActiveLogsRatio(String type) {
-        if (type == null || type.trim().isEmpty()) {
-            logger.warn("Invalid type parameter provided for getActiveLogsRatio");
-            return 0.0;
+    public int getActiveLogsRatio(String type) {
+        var all = repository.countLogsByType(type);
+        var active = repository.countActiveLogsByType(type);
+        if (all == 0) {
+            return 0;
         }
-
-        try {
-            int all = repository.countLogsByType(type);
-            int active = repository.countActiveLogsByType(type);
-            
-            // Log the values for monitoring
-            logger.debug("getActiveLogsRatio - type: {}, total logs: {}, active logs: {}", type, all, active);
-            
-            // Handle division by zero
-            if (all == 0) {
-                logger.warn("No logs found for type: {}. Returning default ratio of 0.0", type);
-                return 0.0;
-            }
-            
-            return (double) active / all;
-        } catch (Exception e) {
-            logger.error("Error calculating active logs ratio for type: " + type, e);
-            return 0.0;
-        }
+        return active/all;
     }@Transactional
     public void cleanupActivityLogs() {
         logger.info("Received request to clean up all clinic activity logs.");
