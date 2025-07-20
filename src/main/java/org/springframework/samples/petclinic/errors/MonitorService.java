@@ -11,113 +11,93 @@ import java.util.InvalidPropertiesFormatException;
 
 @Componentpublic class MonitorService implements SmartLifecycle {
 
-	private boolean running = false;
-	private Thread backgroundThread;
-	@Autowired
-	private OpenTelemetry openTelemetry;
+    private boolean running = false;
+    private Thread backgroundThread;
+    @Autowired
+    private OpenTelemetry openTelemetry;
+    private static final Logger logger = LoggerFactory.getLogger(MonitorService.class);
+    private CircuitBreaker circuitBreaker;
 
-	@Override
-	public void start() {
-		var otelTracer = openTelemetry.getTracer("MonitorService");
-
-		running = true;
-		backgroundThread = new Thread(() -> {
-			while (running) {
-
-				try {
-					Thread.sleep(5000);
-				} catch (InterruptedException e) {
-					throw new RuntimeException(e);
-				}
-				Span span = otelTracer.spanBuilder("monitor").startSpan();
-
-				try {
-
-					System.out.println("Background service is running...");
-					monitor();
-				} catch (Exception e) {
-					span.recordException(e);
-					span.setStatus(StatusCode.ERROR);
-				} finally {
-					span.end();
-				}
-			}
-		});
-
-		// Start the background thread
-		backgroundThread.start();
-		System.out.println("Background service started.");
-	}private void monitor() {
-    Span span = GlobalOpenTelemetry.getTracer("health-monitor")
-        .spanBuilder("health-check")
-        .startSpan();
-    
-    try (Scope scope = span.makeCurrent()) {
-        RetryPolicy<Object> retryPolicy = RetryPolicy.builder()
-            .handle(Exception.class)
-            .withBackoff(1000, 10000, ChronoUnit.MILLIS)
-            .withMaxRetries(3)
-            .build();
-            
-        Failsafe.with(retryPolicy).run(() -> {
-            // Check system health metrics
-            double cpuUsage = checkCpuUsage();
-            long memoryUsage = checkMemoryUsage();
-            boolean diskSpace = checkDiskSpace();
-            
-            span.setAttribute("cpu.usage", cpuUsage);
-            span.setAttribute("memory.usage", memoryUsage);
-            span.setAttribute("disk.space.ok", diskSpace);
-            
-            if (cpuUsage > 90 || memoryUsage > 90 || !diskSpace) {
-                throw new HealthCheckException("System resources critical");
+    @Override
+    public void start() {
+        var otelTracer = openTelemetry.getTracer("MonitorService");
+        
+        // Initialize circuit breaker
+        circuitBreaker = CircuitBreaker.ofDefaults("monitorService");
+        
+        running = true;
+        backgroundThread = new Thread(() -> {
+            while (running) {
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    logger.error("Monitor service interrupted", e);
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                
+                Span span = otelTracer.spanBuilder("monitor").startSpan();
+                try {
+                    logger.debug("Executing monitoring cycle");
+                    circuitBreaker.executeRunnable(() -> monitor());
+                } catch (Exception e) {
+                    logger.error("Error during monitoring cycle", e);
+                    span.recordException(e);
+                    span.setStatus(StatusCode.ERROR);
+                } finally {
+                    span.end();
+                }
             }
         });
-        
-        span.setStatus(StatusCode.OK);
-    } catch (Exception e) {
-        span.setStatus(StatusCode.ERROR, e.getMessage());
-        span.recordException(e);
-        throw new RuntimeException("Health check failed", e);
-    } finally {
-        span.end();
-    }
-}
 
-private double checkCpuUsage() {
-    // Implementation to check CPU usage
-    return ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage();
-}
+        backgroundThread.setName("MonitorService-Thread");
+        backgroundThread.start();
+        logger.info("Background service started successfully");
+    }private void monitor() throws InvalidPropertiesFormatException {
+		Logger logger = LoggerFactory.getLogger(this.getClass());
+		try {
+			if (!isRunning()) {
+				logger.warn("Cannot monitor - service is not running");
+				return;
+			}
 
-private long checkMemoryUsage() {
-    // Implementation to check memory usage
-    Runtime runtime = Runtime.getRuntime();
-    long usedMemory = runtime.totalMemory() - runtime.freeMemory();
-    return (usedMemory * 100) / runtime.maxMemory();
-}
+			if (circuitBreaker.isOpen()) {
+				logger.warn("Circuit breaker is open, skipping monitoring");
+				return;
+			}
 
-private boolean checkDiskSpace() {
-    // Implementation to check disk space
-    File root = new File("/");
-    return root.getFreeSpace() > 1_000_000_000L; // 1GB minimum
-}
+			try {
+				// Perform monitoring
+				logger.info("Performing monitoring check");
+				// Reset circuit breaker on success
+				circuitBreaker.reset();
+			} catch (Exception e) {
+				circuitBreaker.recordFailure();
+				logger.error("Monitor operation failed", e);
+				throw new InvalidPropertiesFormatException("Monitor operation failed: " + e.getMessage());
+			}
+		} catch (Exception e) {
+			logger.error("Unexpected error during monitoring", e);
+			throw e;
+		}
+	}
 
-@Override
-public void stop() {
-    // Stop the background task
-    running = false;
-    if (backgroundThread != null) {
-        try {
-            backgroundThread.join(); // Wait for the thread to finish
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-    System.out.println("Background service stopped.");
-}
+	@Override
+	public void stop() {
+		// Stop the background task
+		running = false;
+		if (backgroundThread != null) {
+			try {
+				backgroundThread.join(); // Wait for the thread to finish
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
+		System.out.println("Background service stopped.");
+	}
 
-@Override
-public boolean isRunning() {
-    return false;
-}
+	@Override
+	public boolean isRunning() {
+		return running;
+	}
 }
