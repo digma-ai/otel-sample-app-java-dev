@@ -48,37 +48,76 @@ import java.util.InvalidPropertiesFormatException;
 		backgroundThread.start();
 		System.out.println("Background service started.");
 	}private void monitor() {
-		try {
-			// Perform health checks
-			checkMemoryUsage();
-			checkCPUUsage();
-			checkDiskSpace();
-			
-			// Update monitoring metrics
-			updateHealthMetrics();
-		} catch (Exception e) {
-			// Log the error and update error metrics
-			System.err.println("Monitoring error: " + e.getMessage());
-			updateErrorMetrics();
-		}
-	}
+    Span span = GlobalOpenTelemetry.getTracer("health-monitor")
+        .spanBuilder("health-check")
+        .startSpan();
+    
+    try (Scope scope = span.makeCurrent()) {
+        RetryPolicy<Object> retryPolicy = RetryPolicy.builder()
+            .handle(Exception.class)
+            .withBackoff(1000, 10000, ChronoUnit.MILLIS)
+            .withMaxRetries(3)
+            .build();
+            
+        Failsafe.with(retryPolicy).run(() -> {
+            // Check system health metrics
+            double cpuUsage = checkCpuUsage();
+            long memoryUsage = checkMemoryUsage();
+            boolean diskSpace = checkDiskSpace();
+            
+            span.setAttribute("cpu.usage", cpuUsage);
+            span.setAttribute("memory.usage", memoryUsage);
+            span.setAttribute("disk.space.ok", diskSpace);
+            
+            if (cpuUsage > 90 || memoryUsage > 90 || !diskSpace) {
+                throw new HealthCheckException("System resources critical");
+            }
+        });
+        
+        span.setStatus(StatusCode.OK);
+    } catch (Exception e) {
+        span.setStatus(StatusCode.ERROR, e.getMessage());
+        span.recordException(e);
+        throw new RuntimeException("Health check failed", e);
+    } finally {
+        span.end();
+    }
+}
 
-	@Override
-	public void stop() {
-		// Stop the background task
-		running = false;
-		if (backgroundThread != null) {
-			try {
-				backgroundThread.join(); // Wait for the thread to finish
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-			}
-		}
-		System.out.println("Background service stopped.");
-	}
+private double checkCpuUsage() {
+    // Implementation to check CPU usage
+    return ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage();
+}
 
-	@Override
-	public boolean isRunning() {
-		return running && backgroundThread != null && backgroundThread.isAlive();
-	}
+private long checkMemoryUsage() {
+    // Implementation to check memory usage
+    Runtime runtime = Runtime.getRuntime();
+    long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+    return (usedMemory * 100) / runtime.maxMemory();
+}
+
+private boolean checkDiskSpace() {
+    // Implementation to check disk space
+    File root = new File("/");
+    return root.getFreeSpace() > 1_000_000_000L; // 1GB minimum
+}
+
+@Override
+public void stop() {
+    // Stop the background task
+    running = false;
+    if (backgroundThread != null) {
+        try {
+            backgroundThread.join(); // Wait for the thread to finish
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+    System.out.println("Background service stopped.");
+}
+
+@Override
+public boolean isRunning() {
+    return false;
+}
 }
