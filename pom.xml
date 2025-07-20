@@ -12,9 +12,7 @@
   </parent>
   <name>petclinic</name>
 
-  <properties>
-
-    <!-- Generic properties -->
+  <properties><!-- Generic properties -->
     <java.version>17</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -22,7 +20,7 @@
     <project.build.outputTimestamp>2023-05-10T07:42:50Z</project.build.outputTimestamp>
 
     <!-- Web dependencies -->
-    <webjars-bootstrap.version>5.2.3</webjars-bootstrap.version>
+    <webjars-bootstrap.version>5.3.6</webjars-bootstrap.version>
     <webjars-font-awesome.version>4.7.0</webjars-font-awesome.version>
 
     <checkstyle.version>10.11.0</checkstyle.version>
@@ -32,11 +30,7 @@
     <maven-checkstyle.version>3.2.2</maven-checkstyle.version>
     <nohttp-checkstyle.version>0.0.11</nohttp-checkstyle.version>
     <spring-format.version>0.0.39</spring-format.version>
-    <otel.version>1.32.0</otel.version>
-
-  </properties>
-
-  <dependencies>
+    <otel.version>1.32.0</otel.version></properties><dependencies>
     <!-- Spring and Spring Boot dependencies -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -63,12 +57,9 @@
       <artifactId>spring-boot-starter-thymeleaf</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
+      <groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
-    </dependency>
-
-    <!-- Databases - Uses H2 by default -->
+    </dependency><!-- Databases - Uses H2 by default -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
@@ -93,9 +84,7 @@
     <dependency>
       <groupId>com.github.ben-manes.caffeine</groupId>
       <artifactId>caffeine</artifactId>
-    </dependency>
-
-    <!-- webjars -->
+    </dependency><!-- webjars -->
     <dependency>
       <groupId>org.webjars.npm</groupId>
       <artifactId>bootstrap</artifactId>
@@ -106,9 +95,7 @@
       <artifactId>font-awesome</artifactId>
       <version>${webjars-font-awesome.version}</version>
     </dependency>
-    <!-- end of webjars -->
-
-    <dependency>
+    <!-- end of webjars --><dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-devtools</artifactId>
       <scope>test</scope>
@@ -137,9 +124,7 @@
     <dependency>
       <groupId>jakarta.xml.bind</groupId>
       <artifactId>jakarta.xml.bind-api</artifactId>
-    </dependency>
-
-    <!-- OTEL deps, Enables instrumentation using @WithSpan-->
+    </dependency><!-- OTEL deps, Enables instrumentation using @WithSpan-->
     <dependency>
       <groupId>io.opentelemetry.instrumentation</groupId>
       <artifactId>opentelemetry-instrumentation-api</artifactId>
@@ -159,9 +144,7 @@
       <version>4.10.0</version>
     </dependency>
 
-  </dependencies>
-
-  <dependencyManagement>
+  </dependencies><dependencyManagement>
     <dependencies>
       <dependency>
         <groupId>org.testcontainers</groupId>
@@ -171,9 +154,7 @@
         <scope>import</scope>
       </dependency>
     </dependencies>
-  </dependencyManagement>
-
-  <build>
+  </dependencyManagement><build>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -202,8 +183,7 @@
         <executions>
           <execution>
             <phase>validate</phase>
-            <goals>
-              <goal>validate</goal>
+            <goals><goal>validate</goal>
             </goals>
           </execution>
         </executions>
@@ -228,8 +208,7 @@
             <artifactId>nohttp-checkstyle</artifactId>
             <version>${nohttp-checkstyle.version}</version>
           </dependency>
-        </dependencies>
-        <executions>
+        </dependencies><executions>
           <execution>
             <id>nohttp-checkstyle-validation</id>
             <phase>validate</phase>
@@ -252,8 +231,7 @@
       </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-        <executions>
+        <artifactId>spring-boot-maven-plugin</artifactId><executions>
           <execution>
             <!-- Spring Boot Actuator displays build-related information
               if a META-INF/build-info.properties file is present -->
@@ -277,8 +255,7 @@
         <version>${jacoco.version}</version>
         <executions>
           <execution>
-            <goals>
-              <goal>prepare-agent</goal>
+            <goals><goal>prepare-agent</goal>
             </goals>
           </execution>
           <execution>
@@ -289,9 +266,7 @@
             </goals>
           </execution>
         </executions>
-      </plugin>
-
-      <!-- Spring Boot Actuator displays build-related information if a git.properties
+      </plugin><!-- Spring Boot Actuator displays build-related information if a git.properties
         file is present at the classpath -->
       <plugin>
         <groupId>io.github.git-commit-id</groupId>
@@ -310,9 +285,7 @@
       <name>Apache License, Version 2.0</name>
       <url>https://www.apache.org/licenses/LICENSE-2.0</url>
     </license>
-  </licenses>
-
-  <repositories>
+  </licenses><repositories>
     <repository>
       <id>spring-snapshots</id>
       <name>Spring Snapshots</name>
@@ -348,9 +321,7 @@
         <enabled>false</enabled>
       </snapshots>
     </pluginRepository>
-  </pluginRepositories>
-
-  <profiles>
+  </pluginRepositories><profiles>
     <profile>
       <id>css</id>
       <build>
@@ -375,12 +346,9 @@
                     </artifactItem>
                   </artifactItems>
                   <outputDirectory>${project.build.directory}/webjars</outputDirectory>
-                </configuration>
-              </execution>
+                </configuration></execution>
             </executions>
-          </plugin>
-
-          <plugin>
+          </plugin><plugin>
             <groupId>com.gitlab.haynes</groupId>
             <artifactId>libsass-maven-plugin</artifactId>
             <version>${libsass.version}</version>
@@ -405,8 +373,7 @@
     <profile>
       <id>m2e</id>
       <activation>
-        <property>
-          <name>m2e.version</name>
+        <property><name>m2e.version</name>
         </property>
       </activation>
       <build>
@@ -428,8 +395,7 @@
                         <versionRange>[1,)</versionRange>
                         <goals>
                           <goal>check</goal>
-                        </goals>
-                      </pluginExecutionFilter>
+                        </goals></pluginExecutionFilter>
                       <action>
                         <ignore />
                       </action>
@@ -450,8 +416,7 @@
                     <pluginExecution>
                       <pluginExecutionFilter>
                         <groupId>io.spring.javaformat</groupId>
-                        <artifactId>spring-javaformat-maven-plugin</artifactId>
-                        <versionRange>[0,)</versionRange>
+                        <artifactId>spring-javaformat-maven-plugin</artifactId><versionRange>[0,)</versionRange>
                         <goals>
                           <goal>validate</goal>
                         </goals>
@@ -468,6 +433,4 @@
         </pluginManagement>
       </build>
     </profile>
-  </profiles>
-
-</project>
+  </profiles></project>
