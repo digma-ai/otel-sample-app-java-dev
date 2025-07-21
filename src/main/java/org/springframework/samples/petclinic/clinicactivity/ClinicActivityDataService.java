@@ -4,6 +4,7 @@ import com.github.javafaker.Faker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.samples.petclinic.model.ClinicActivityLog;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -57,9 +58,9 @@ public class ClinicActivityDataService {
 
     @Autowired
     public ClinicActivityDataService(ClinicActivityLogRepository repository,
-                                     JdbcTemplate jdbcTemplate,
-                                     DataSource dataSource,
-                                     PlatformTransactionManager transactionManager) {
+                                     @Qualifier("postgresJdbcTemplate") JdbcTemplate jdbcTemplate,
+                                     @Qualifier("postgresDataSource") DataSource dataSource,
+                                     @Qualifier("postgresTransactionManager") PlatformTransactionManager transactionManager) {
         this.repository = repository;
         this.jdbcTemplate = jdbcTemplate;
         this.dataSource = dataSource;
