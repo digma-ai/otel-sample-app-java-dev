@@ -1,6 +1,4 @@
-package org.springframework.samples.petclinic.clinicactivity;
-
-import com.github.javafaker.Faker;
+package org.springframework.samples.petclinic.clinicactivity;import com.github.javafaker.Faker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,8 +18,7 @@ import org.postgresql.PGConnection;
 import org.postgresql.copy.CopyManager;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.time.ZoneId;import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -32,10 +29,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Random;
 import java.util.Map;
-import java.util.HashMap;
-
-@Service
-public class ClinicActivityDataService {
+import java.util.HashMap;@Servicepublic class ClinicActivityDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinicActivityDataService.class);
     private static final int BATCH_SIZE = 1000;
@@ -44,9 +38,7 @@ public class ClinicActivityDataService {
     private final ClinicActivityLogRepository repository;
     private final JdbcTemplate jdbcTemplate;
     private final DataSource dataSource;
-    private final PlatformTransactionManager transactionManager;
-
-    // List of 15 possible activity types
+    private final PlatformTransactionManager transactionManager;// List of 15 possible activity types
     private static final List<String> ACTIVITY_TYPES = List.of(
             "Patient Check-in", "Patient Check-out", "Appointment Scheduling", "Medical Record Update",
             "Prescription Issuance", "Lab Test Order", "Lab Test Result Review", "Billing Generation",
@@ -54,9 +46,7 @@ public class ClinicActivityDataService {
             "Emergency Alert", "Consultation Note", "Follow-up Reminder"
     );
     private final Random random = new Random();
-    private final ExecutorService executorService = Executors.newFixedThreadPool(8);
-
-    @Autowired
+    private final ExecutorService executorService = Executors.newFixedThreadPool(8);@Autowired
     public ClinicActivityDataService(ClinicActivityLogRepository repository,
                                      @Qualifier("postgresJdbcTemplate") JdbcTemplate jdbcTemplate,
                                      @Qualifier("postgresDataSource") DataSource dataSource,
@@ -68,13 +58,24 @@ public class ClinicActivityDataService {
     }
 
     @Transactional
-    public int getActiveLogsRatio(String type) {
-		var all = repository.countLogsByType(type);
-		var active = repository.countActiveLogsByType(type);
-		return active/all;
-    }
-
-    @Transactional
+    public double getActiveLogsRatio(String type) {
+        if (type == null) {
+            logger.warn("Null type provided to getActiveLogsRatio");
+            return 0.0;
+        }
+        
+        logger.debug("Calculating active logs ratio for type: {}", type);
+        var all = repository.countLogsByType(type);
+        var active = repository.countActiveLogsByType(type);
+        
+        if (all == 0) {
+            logger.warn("No logs found for type: {}. Avoiding division by zero.", type);
+            return 0.0;
+        }
+        
+        logger.debug("Found {} total logs and {} active logs for type: {}", all, active, type);
+        return (double) active / all;
+    }@Transactional
     public void cleanupActivityLogs() {
         logger.info("Received request to clean up all clinic activity logs.");
         long startTime = System.currentTimeMillis();
@@ -86,9 +87,7 @@ public class ClinicActivityDataService {
             logger.error("Error during clinic activity log cleanup", e);
             throw new RuntimeException("Error cleaning up activity logs: " + e.getMessage(), e);
         }
-    }
-
-    @Transactional
+    }@Transactional
     public void populateData(int totalEntries) {
         long startTime = System.currentTimeMillis();
         Connection con = null;
@@ -96,9 +95,7 @@ public class ClinicActivityDataService {
             con = DataSourceUtils.getConnection(dataSource);
             String databaseProductName = con.getMetaData().getDatabaseProductName();
             DataSourceUtils.releaseConnection(con, dataSource);
-            con = null;
-
-            if ("PostgreSQL".equalsIgnoreCase(databaseProductName)) {
+            con = null;if ("PostgreSQL".equalsIgnoreCase(databaseProductName)) {
                 logger.info("Using PostgreSQL COPY for data population of {} entries.", totalEntries);
                 populateDataWithCopyToNewTransaction(totalEntries);
             } else {
@@ -113,11 +110,8 @@ public class ClinicActivityDataService {
                  DataSourceUtils.releaseConnection(con, dataSource);
             }
         }
-        long endTime = System.currentTimeMillis();
-        logger.info("Finished data population for {} clinic activity logs in {} ms.", totalEntries, (endTime - startTime));
-    }
-
-    private void populateDataWithCopyToNewTransaction(int totalEntries) throws Exception {
+        long endTime = System.currentTimeMillis();logger.info("Finished data population for {} clinic activity logs in {} ms.", totalEntries, (endTime - startTime));
+    }private void populateDataWithCopyToNewTransaction(int totalEntries) throws Exception {
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
         def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         TransactionStatus status = transactionManager.getTransaction(def);
@@ -127,9 +121,7 @@ public class ClinicActivityDataService {
             Faker faker = new Faker(new Locale("en-US"));
             DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             StringBuilder sb = new StringBuilder();
-            CopyManager copyManager = connection.unwrap(PGConnection.class).getCopyAPI();
-
-            for (int i = 0; i < totalEntries; i++) {
+            CopyManager copyManager = connection.unwrap(PGConnection.class).getCopyAPI();for (int i = 0; i < totalEntries; i++) {
                 String activityType = ACTIVITY_TYPES.get(random.nextInt(ACTIVITY_TYPES.size()));
                 int numericVal = faker.number().numberBetween(1, 100_000);
                 String ts = dtf.format(LocalDateTime.ofInstant(
@@ -141,9 +133,7 @@ public class ClinicActivityDataService {
                   .append(numericVal).append(',')
                   .append(csv(ts)).append(',')
                   .append(statusFlag).append(',')
-                  .append(csv(payload)).append('\n');
-
-                if ((i + 1) % COPY_FLUSH_EVERY == 0 || (i + 1) == totalEntries) {
+                  .append(csv(payload)).append('\n');if ((i + 1) % COPY_FLUSH_EVERY == 0 || (i + 1) == totalEntries) {
                     copyManager.copyIn("COPY clinic_activity_logs (activity_type, numeric_value, event_timestamp, status_flag, payload) FROM STDIN WITH (FORMAT csv)", new java.io.StringReader(sb.toString()));
                     sb.setLength(0);
                     if (logger.isInfoEnabled()){
@@ -163,9 +153,7 @@ public class ClinicActivityDataService {
                 DataSourceUtils.releaseConnection(connection, dataSource);
             }
         }
-    }
-
-    private void populateDataWithJdbcBatchInNewTransaction(int totalEntries) {
+    }private void populateDataWithJdbcBatchInNewTransaction(int totalEntries) {
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
         def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         TransactionStatus status = transactionManager.getTransaction(def);
@@ -177,8 +165,7 @@ public class ClinicActivityDataService {
                 for (int j = 0; j < BATCH_SIZE && i < totalEntries; j++, i++) {
                     String activityType = ACTIVITY_TYPES.get(random.nextInt(ACTIVITY_TYPES.size()));
                     int numericVal = faker.number().numberBetween(1, 100_000);
-                    Timestamp eventTimestamp = Timestamp.from(
-                        faker.date().past(5 * 365, TimeUnit.DAYS).toInstant().atZone(ZoneId.systemDefault()).toInstant()
+                    Timestamp eventTimestamp = Timestamp.from(faker.date().past(5 * 365, TimeUnit.DAYS).toInstant().atZone(ZoneId.systemDefault()).toInstant()
                     );
                     boolean statusFlag = faker.bool().bool();
                     String payload = String.join(" ", faker.lorem().paragraphs(faker.number().numberBetween(1, 3)));
@@ -195,13 +182,10 @@ public class ClinicActivityDataService {
         } catch (Exception e) {
             if (!status.isCompleted()) {
                 transactionManager.rollback(status);
-            }
-            logger.error("Error during JDBC batch population with new transaction", e);
+            }logger.error("Error during JDBC batch population with new transaction", e);
             throw new RuntimeException("Error during JDBC batch population with new transaction: " + e.getMessage(), e);
         }
-    }
-
-    private String csv(String value) {
+    }private String csv(String value) {
         if (value == null) {
             return "";
         }
@@ -219,9 +203,7 @@ public class ClinicActivityDataService {
             AtomicInteger globalOperationCount = new AtomicInteger(0);
             List<Thread> threads = new ArrayList<>();
 
-            logger.info("Creating {} I/O intensive threads with {} record limit per query...", numThreads, limit);
-
-            // Create I/O intensive threads
+            logger.info("Creating {} I/O intensive threads with {} record limit per query...", numThreads, limit);// Create I/O intensive threads
             for (int t = 0; t < numThreads; t++) {
                 final int threadId = t;
                 Thread ioThread = new Thread(() -> {
@@ -240,9 +222,7 @@ public class ClinicActivityDataService {
             logger.info("Starting all {} I/O intensive threads...", numThreads);
             for (Thread thread : threads) {
                 thread.start();
-            }
-
-            // Wait for all threads to complete
+            }// Wait for all threads to complete
             for (Thread thread : threads) {
                 try {
                     thread.join();
@@ -260,9 +240,7 @@ public class ClinicActivityDataService {
             logger.error("Error during I/O intensive load test", e);
             throw new RuntimeException("Error during I/O intensive load test: " + e.getMessage(), e);
         }
-    }
-
-    private void executeIOIntensiveThread(int threadId, long endTime, AtomicInteger globalOperationCount, int limit) {
+    }private void executeIOIntensiveThread(int threadId, long endTime, AtomicInteger globalOperationCount, int limit) {
         Random random = new Random();
         Faker faker = new Faker(new Locale("en-US"));
         int localOperationCount = 0;
@@ -278,10 +256,7 @@ public class ClinicActivityDataService {
                             "FROM clinic_activity_logs " +
                             "WHERE LENGTH(payload) > 100 " +
 							"ORDER BY random()" +
-                            "LIMIT " + limit);
-
-
-                localOperationCount++;
+                            "LIMIT " + limit);localOperationCount++;
                 int currentGlobalCount = globalOperationCount.incrementAndGet();
 
                 // Log progress every 100 operations per thread
@@ -295,9 +270,7 @@ public class ClinicActivityDataService {
                 // But avoid overwhelming the system with a tiny yield
                 if (localOperationCount % 50 == 0) {
                     Thread.yield();
-                }
-
-            } catch (Exception e) {
+                }} catch (Exception e) {
                 logger.error("Error in I/O operation for thread {}", threadId, e);
                 try {
                     Thread.sleep(10); // Brief pause on error
