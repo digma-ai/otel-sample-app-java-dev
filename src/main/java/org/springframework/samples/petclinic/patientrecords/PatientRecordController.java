@@ -20,8 +20,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
-@RequestMapping("/api/patient-records")
-public class PatientRecordController implements InitializingBean {
+@RequestMapping("/api/patient-records")public class PatientRecordController implements InitializingBean {
 
     private static final Logger logger = LoggerFactory.getLogger(PatientRecordController.class);
 
@@ -46,9 +45,7 @@ public class PatientRecordController implements InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         this.otelTracer = openTelemetry.getTracer("PatientRecordController");
-    }
-
-    @PostMapping("/populate-records")
+    }@PostMapping("/populate-records")
     public ResponseEntity<String> populateData(@RequestParam(name = "count", defaultValue = "6000000") int count) {
         logger.info("Received request to populate {} patient records.", count);
         if (count <= 0) {
@@ -64,29 +61,27 @@ public class PatientRecordController implements InitializingBean {
             logger.error("Error during patient records population", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during data population: " + e.getMessage());
         }
-    }
-
-    @GetMapping(value = "/query-records", produces = "application/json")
+    }@GetMapping(value = "/query-records", produces = "application/json")
+    @Cacheable(value = "patientRecords", key = "#patientWeight + '-' + #repetitions")
     public List<Map<String, Object>> getRecords(
             @RequestParam(name = "weight", defaultValue = "5000") int patientWeight,
-            @RequestParam(name = "repetitions", defaultValue = "1") int repetitions) {
+            @RequestParam(name = "repetitions", defaultValue = "1") int repetitions,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "100") int size) {
         
         logger.info("Querying patient records by weight: {} (repetitions: {})", patientWeight, repetitions);
         
         String sql = "SELECT id, treatment_type, patient_weight, visit_date, treatment_completed, medical_notes " +
-                    "FROM patient_records WHERE patient_weight = ?";
+                    "FROM patient_records WHERE patient_weight = ? LIMIT ? OFFSET ?";
         
         List<Map<String, Object>> lastResults = null;
         for (int i = 0; i < repetitions; i++) {
-            lastResults = mysqlJdbcTemplate.queryForList(sql, patientWeight);
+            lastResults = mysqlJdbcTemplate.queryForList(sql, patientWeight, size, page * size);
         }
         
         logger.info("Query completed. Found {} records for weight: {}", 
                    lastResults != null ? lastResults.size() : 0, patientWeight);
-        return lastResults;
-    }
-
-    @DeleteMapping("/cleanup-records")
+        return lastResults;}@DeleteMapping("/cleanup-records")
     public ResponseEntity<String> cleanupRecords() {
         logger.info("Received request to cleanup all patient records.");
         try {
@@ -96,9 +91,7 @@ public class PatientRecordController implements InitializingBean {
             logger.error("Error during patient records cleanup", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during cleanup: " + e.getMessage());
         }
-    }
-
-    @PostMapping("/recreate-and-populate-records")
+    }@PostMapping("/recreate-and-populate-records")
     public ResponseEntity<String> recreateAndPopulateRecords(@RequestParam(name = "count", defaultValue = "6000000") int count) {
         logger.info("Received request to recreate and populate {} patient records.", count);
         if (count <= 0) {
@@ -110,9 +103,7 @@ public class PatientRecordController implements InitializingBean {
         try {
             // Drop the table
             mysqlJdbcTemplate.execute("DROP TABLE IF EXISTS patient_records");
-            logger.info("Table 'patient_records' dropped successfully.");
-
-            // Recreate the table with MySQL syntax
+            logger.info("Table 'patient_records' dropped successfully.");// Recreate the table with MySQL syntax
             String createTableSql = 
                 "CREATE TABLE patient_records (" +
                 "id INT AUTO_INCREMENT PRIMARY KEY," +
@@ -127,9 +118,7 @@ public class PatientRecordController implements InitializingBean {
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
             
             mysqlJdbcTemplate.execute(createTableSql);
-            logger.info("Table 'patient_records' created successfully.");
-
-            // Populate data
+            logger.info("Table 'patient_records' created successfully.");// Populate data
             dataService.populateData(count);
             return ResponseEntity.ok("Successfully recreated and initiated population of " + count + " patient records.");
         } catch (Exception e) {
@@ -144,9 +133,7 @@ public class PatientRecordController implements InitializingBean {
         @RequestParam(name = "repetitions", defaultValue = "100") int repetitions
     ) {
         long startTime = System.currentTimeMillis();
-        int totalOperations = 0;
-
-        for (int queryTypeIndex = 0; queryTypeIndex < uniqueQueriesCount; queryTypeIndex++) {
+        int totalOperations = 0;for (int queryTypeIndex = 0; queryTypeIndex < uniqueQueriesCount; queryTypeIndex++) {
             char queryTypeChar = (char) ('A' + queryTypeIndex);
             String parentSpanName = "PatientBatch_Type" + queryTypeChar;
             Span typeParentSpan = otelTracer.spanBuilder(parentSpanName).startSpan();
@@ -160,15 +147,11 @@ public class PatientRecordController implements InitializingBean {
             } finally {
                 typeParentSpan.end();
             }
-        }
-
-        long endTime = System.currentTimeMillis();
+        }long endTime = System.currentTimeMillis();
         String message = String.format("Executed %d simulated patient query operations in %d ms.", totalOperations, (endTime - startTime));
         logger.info(message);
         return ResponseEntity.ok(message);
-    }
-
-    private void performObservablePatientOperation(String operationName) {
+    }private void performObservablePatientOperation(String operationName) {
         Span span = otelTracer.spanBuilder(operationName)
             .setSpanKind(SpanKind.CLIENT)
             .setAttribute("db.system", "mysql")
@@ -187,4 +170,4 @@ public class PatientRecordController implements InitializingBean {
             span.end();
         }
     }
-} 
+}
