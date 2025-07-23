@@ -28,8 +28,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
-import jakarta.persistence.NamedEntityGraph;
-import jakarta.persistence.NamedAttributeNode;
 import jakarta.persistence.Table;
 import jakarta.xml.bind.annotation.XmlElement;
 
@@ -42,13 +40,10 @@ import jakarta.xml.bind.annotation.XmlElement;
  * @author Arjen Poutsma
  */
 @Entity
-@Table(name = "vets")
-@NamedEntityGraph(name = "Vet.specialties",
-    attributeNodes = @NamedAttributeNode("specialties"))@NamedEntityGraph(name = "Vet.specialties",
-    attributeNodes = @NamedAttributeNode("specialties"))
-public class Vet extends Person {
+@Table(name = "vets")public class Vet extends Person {
 
 	@ManyToMany(fetch = FetchType.LAZY)
+	@BatchSize(size=100)
 	@JoinTable(name = "vet_specialties", joinColumns = @JoinColumn(name = "vet_id"),
 			inverseJoinColumns = @JoinColumn(name = "specialty_id"))
 	private Set<Specialty> specialties;
