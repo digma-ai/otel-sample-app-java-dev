@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: layout (~{::body},'Patient Records')}">
+
+<body>
+
+  <h2>Patient Records Query</h2>
+
+  <div class="row">
+    <div class="col-md-12">
+      <div class="well">
+        <h3>Query Patient Records by Weight</h3>
+        <p class="help-block">
+          <em>Search patient records by weight in grams.</em>
+        </p>
+        
+        <form>
+          <div class="form-group">
+            <label for="weight">Patient Weight (grams):</label>
+            <input type="number" id="weight" name="weight" value="5000" min="500" max="50000" class="form-control" style="width: 200px;">
+            <small class="form-text text-muted">Common weights: Small cat: 3000g, Medium dog: 15000g, Large dog: 30000g</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="repetitions">Repetitions:</label>
+            <input type="number" id="repetitions" name="repetitions" value="1" min="1" max="10" class="form-control" style="width: 100px;">
+            <small class="form-text text-muted">Number of times to repeat the same query</small>
+          </div>
+          
+          <button type="button" onclick="queryRecords()" class="btn btn-primary">Query Patient Records</button>
+          <button type="button" onclick="clearResults()" class="btn btn-secondary">Clear Results</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-12">
+      <div id="loading" style="display: none;" class="alert alert-info">
+        <strong>Querying...</strong> Please wait while searching patient records by weight.
+      </div>
+      
+      <div id="error" style="display: none;" class="alert alert-danger">
+        <strong>Error:</strong> <span id="errorMessage"></span>
+      </div>
+      
+      <div id="results" style="display: none;">
+        <h3>Query Results</h3>
+        <div class="well">
+          <p><strong>Query Details:</strong></p>
+          <ul>
+            <li>Weight searched: <span id="searchedWeight"></span> grams</li>
+            <li>Repetitions: <span id="searchedRepetitions"></span></li>
+            <li>Records found: <span id="recordCount"></span></li>
+            <li>Query time: <span id="queryTime"></span> ms</li>
+          </ul>
+        </div>
+        
+        <div class="table-responsive">
+          <table class="table table-striped" id="recordsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Treatment Type</th>
+                <th>Patient Weight (g)</th>
+                <th>Visit Date</th>
+                <th>Treatment Completed</th>
+                <th>Medical Notes</th>
+              </tr>
+            </thead>
+            <tbody id="recordsTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function queryRecords() {
+      const weight = document.getElementById('weight').value;
+      const repetitions = document.getElementById('repetitions').value;
+      
+      if (!weight || weight < 500 || weight > 50000) {
+        showError('Please enter a valid weight between 500 and 50000 grams.');
+        return;
+      }
+      
+      if (!repetitions || repetitions < 1 || repetitions > 10) {
+        showError('Please enter repetitions between 1 and 10.');
+        return;
+      }
+      
+      showLoading();
+      
+      const startTime = Date.now();
+      
+      fetch(`/api/patient-records/query-records?weight=${weight}&repetitions=${repetitions}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          const endTime = Date.now();
+          const queryTime = endTime - startTime;
+          displayResults(data, weight, repetitions, queryTime);
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          showError('Failed to query patient records: ' + error.message);
+        })
+        .finally(() => {
+          hideLoading();
+        });
+    }
+    
+    function displayResults(records, weight, repetitions, queryTime) {
+      document.getElementById('searchedWeight').textContent = weight;
+      document.getElementById('searchedRepetitions').textContent = repetitions;
+      document.getElementById('recordCount').textContent = records.length;
+      document.getElementById('queryTime').textContent = queryTime;
+      
+      const tbody = document.getElementById('recordsTableBody');
+      tbody.innerHTML = '';
+      
+      records.forEach(record => {
+        const row = tbody.insertRow();
+        row.insertCell(0).textContent = record.id;
+        row.insertCell(1).textContent = record.treatment_type;
+        row.insertCell(2).textContent = record.patient_weight;
+        row.insertCell(3).textContent = new Date(record.visit_date).toLocaleString();
+        row.insertCell(4).textContent = record.treatment_completed ? 'Yes' : 'No';
+        
+        const notesCell = row.insertCell(5);
+        const notes = record.medical_notes || '';
+        notesCell.textContent = notes.length > 100 ? notes.substring(0, 100) + '...' : notes;
+        notesCell.title = notes; // Show full text on hover
+      });
+      
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('error').style.display = 'none';
+    }
+    
+    function showLoading() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('error').style.display = 'none';
+    }
+    
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+    }
+    
+    function showError(message) {
+      document.getElementById('errorMessage').textContent = message;
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('results').style.display = 'none';
+    }
+    
+    function clearResults() {
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('error').style.display = 'none';
+      document.getElementById('weight').value = '5000';
+      document.getElementById('repetitions').value = '1';
+    }
+  </script>
+
+</body>
+
+</html> 
