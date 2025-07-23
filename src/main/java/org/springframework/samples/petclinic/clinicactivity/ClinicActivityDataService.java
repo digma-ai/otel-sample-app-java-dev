@@ -2,6 +2,7 @@ package org.springframework.samples.petclinic.clinicactivity;import com.github.j
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.samples.petclinic.model.ClinicActivityLog;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -17,8 +18,8 @@ import org.postgresql.PGConnection;
 import org.postgresql.copy.CopyManager;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;import java.util.ArrayList;
+import java.time.ZoneId;import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
@@ -47,29 +48,32 @@ import java.util.HashMap;@Servicepublic class ClinicActivityDataService {
     private final Random random = new Random();
     private final ExecutorService executorService = Executors.newFixedThreadPool(8);@Autowired
     public ClinicActivityDataService(ClinicActivityLogRepository repository,
-                                     JdbcTemplate jdbcTemplate,
-                                     DataSource dataSource,
-                                     PlatformTransactionManager transactionManager) {
+                                     @Qualifier("postgresJdbcTemplate") JdbcTemplate jdbcTemplate,
+                                     @Qualifier("postgresDataSource") DataSource dataSource,
+                                     @Qualifier("postgresTransactionManager") PlatformTransactionManager transactionManager) {
         this.repository = repository;
         this.jdbcTemplate = jdbcTemplate;
         this.dataSource = dataSource;
         this.transactionManager = transactionManager;
     }
 
-    /**
-     * Calculates the ratio of active logs to total logs for a given type.
-     * 
-     * @param type The activity type to calculate ratio for
-     * @return The ratio of active logs to total logs, or 0 if there are no logs
-     */
     @Transactional
     public double getActiveLogsRatio(String type) {
-        var all = repository.countLogsByType(type);
-        if (all == 0) {
-            logger.warn("No logs found for type: {}. Returning 0 to avoid division by zero.", type);
+        if (type == null) {
+            logger.warn("Null type provided to getActiveLogsRatio");
             return 0.0;
         }
+        
+        logger.debug("Calculating active logs ratio for type: {}", type);
+        var all = repository.countLogsByType(type);
         var active = repository.countActiveLogsByType(type);
+        
+        if (all == 0) {
+            logger.warn("No logs found for type: {}. Avoiding division by zero.", type);
+            return 0.0;
+        }
+        
+        logger.debug("Found {} total logs and {} active logs for type: {}", all, active, type);
         return (double) active / all;
     }@Transactional
     public void cleanupActivityLogs() {
