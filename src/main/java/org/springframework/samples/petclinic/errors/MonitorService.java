@@ -11,93 +11,143 @@ import java.util.InvalidPropertiesFormatException;
 
 @Componentpublic class MonitorService implements SmartLifecycle {
 
-    private boolean running = false;
+    private volatile boolean running = false;
     private Thread backgroundThread;
+    private volatile boolean healthy = true;
+    private int consecutiveFailures = 0;
+    private static final int MAX_RETRIES = 3;
+    private static final long RETRY_DELAY_MS = 1000;
+    private static final long MONITORING_INTERVAL_MS = 5000;
+
     @Autowired
     private OpenTelemetry openTelemetry;
-    private static final Logger logger = LoggerFactory.getLogger(MonitorService.class);
-    private CircuitBreaker circuitBreaker;
 
     @Override
     public void start() {
         var otelTracer = openTelemetry.getTracer("MonitorService");
-        
-        // Initialize circuit breaker
-        circuitBreaker = CircuitBreaker.ofDefaults("monitorService");
-        
+
         running = true;
         backgroundThread = new Thread(() -> {
             while (running) {
+                Span span = null;
                 try {
-                    Thread.sleep(5000);
+                    span = otelTracer.spanBuilder("monitor").startSpan();
+                    executeWithRetry(() -> {
+                        monitor();
+                        consecutiveFailures = 0;
+                        healthy = true;
+                        return null;
+                    }, MAX_RETRIES);
+
+                    Thread.sleep(MONITORING_INTERVAL_MS);
                 } catch (InterruptedException e) {
-                    logger.error("Monitor service interrupted", e);
                     Thread.currentThread().interrupt();
                     break;
-                }
-                
-                Span span = otelTracer.spanBuilder("monitor").startSpan();
-                try {
-                    logger.debug("Executing monitoring cycle");
-                    circuitBreaker.executeRunnable(() -> monitor());
                 } catch (Exception e) {
-                    logger.error("Error during monitoring cycle", e);
-                    span.recordException(e);
-                    span.setStatus(StatusCode.ERROR);
+                    consecutiveFailures++;
+                    if (consecutiveFailures >= MAX_RETRIES) {
+                        healthy = false;
+                    }
+                    if (span != null) {
+                        span.recordException(e);
+                        span.setStatus(StatusCode.ERROR);
+                    }
+                    logger.error("Monitor service error", e);
                 } finally {
-                    span.end();
+                    if (span != null) {
+                        span.end();
+                    }
                 }
             }
-        });
+        }, "MonitorService-Thread");
 
-        backgroundThread.setName("MonitorService-Thread");
+        backgroundThread.setDaemon(true);
         backgroundThread.start();
-        logger.info("Background service started successfully");
-    }private void monitor() throws InvalidPropertiesFormatException {
-		Logger logger = LoggerFactory.getLogger(this.getClass());
-		try {
-			if (!isRunning()) {
-				logger.warn("Cannot monitor - service is not running");
-				return;
-			}
+        logger.info("Monitor service started.");
+    }
 
-			if (circuitBreaker.isOpen()) {
-				logger.warn("Circuit breaker is open, skipping monitoring");
-				return;
-			}
+    private <T> T executeWithRetry(Callable<T> task, int maxRetries) throws Exception {
+        Exception lastException = null;
+        for (int attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                return task.call();
+            } catch (Exception e) {
+                lastException = e;
+                if (attempt < maxRetries - 1) {
+                    Thread.sleep(RETRY_DELAY_MS * (attempt + 1));
+                }
+            }
+        }
+        throw lastException;
+    }
 
-			try {
-				// Perform monitoring
-				logger.info("Performing monitoring check");
-				// Reset circuit breaker on success
-				circuitBreaker.reset();
-			} catch (Exception e) {
-				circuitBreaker.recordFailure();
-				logger.error("Monitor operation failed", e);
-				throw new InvalidPropertiesFormatException("Monitor operation failed: " + e.getMessage());
-			}
-		} catch (Exception e) {
-			logger.error("Unexpected error during monitoring", e);
-			throw e;
-		}
-	}
+    public boolean isHealthy() {
+        return healthy;
+    }private void monitor() {
+    int retryCount = 0;
+    int maxRetries = 3;
+    long retryDelay = 1000; // 1 second
 
-	@Override
-	public void stop() {
-		// Stop the background task
-		running = false;
-		if (backgroundThread != null) {
-			try {
-				backgroundThread.join(); // Wait for the thread to finish
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-			}
-		}
-		System.out.println("Background service stopped.");
-	}
+    while (retryCount < maxRetries) {
+        try {
+            // Perform health checks
+            if (!performHealthCheck()) {
+                throw new MonitoringException("Health check failed");
+            }
 
-	@Override
-	public boolean isRunning() {
-		return running;
-	}
+            // Actual monitoring logic
+            performMonitoring();
+            break; // Success, exit retry loop
+
+        } catch (Exception e) {
+            retryCount++;
+            if (retryCount >= maxRetries) {
+                throw new MonitoringException("Monitor failed after " + maxRetries + " retries", e);
+            }
+            try {
+                Thread.sleep(retryDelay);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new MonitoringException("Monitoring interrupted", ie);
+            }
+        }
+    }
+}
+
+private boolean performHealthCheck() {
+    try {
+        // Implement actual health check logic here
+        return true;
+    } catch (Exception e) {
+        return false;
+    }
+}
+
+private void performMonitoring() {
+    // Implement actual monitoring logic here
+}
+
+@Override
+public void stop() {
+    running = false;
+    if (backgroundThread != null) {
+        try {
+            backgroundThread.interrupt();
+            backgroundThread.join(5000); // Wait up to 5 seconds for thread to finish
+            if (backgroundThread.isAlive()) {
+                // Log warning if thread doesn't stop
+                System.err.println("Warning: Background thread did not stop gracefully");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.err.println("Stop operation was interrupted");
+        }
+    }
+    System.out.println("Background service stopped.");
+}
+
+@Override
+public boolean isRunning() {
+    return running && (backgroundThread != null && backgroundThread.isAlive());
+}
 }
