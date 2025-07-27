@@ -23,7 +23,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
 @RequestMapping("/api/clinic-activity")
-@Profile("postgres")
+@Profile({"postgres", "mysql"})
 public class ClinicActivityController implements InitializingBean {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinicActivityController.class);

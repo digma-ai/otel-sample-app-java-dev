@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
 @RequestMapping("/patient-records")
-@Profile({"postgres", "mysql"})
+@Profile("mysql")
 public class PatientRecordUiController {
 
     private final JdbcTemplate mysqlJdbcTemplate;

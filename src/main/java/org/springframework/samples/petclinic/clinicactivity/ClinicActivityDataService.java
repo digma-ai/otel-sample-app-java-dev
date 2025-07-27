@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.HashMap;
 
 @Service
-@Profile("postgres")
+@Profile({"postgres", "mysql"})
 public class ClinicActivityDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinicActivityDataService.class);

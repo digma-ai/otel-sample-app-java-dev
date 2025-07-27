@@ -19,25 +19,25 @@ public class DatabaseConfig {
     @Primary
     @Bean(name = "postgresDataSource")
     @ConfigurationProperties("app.datasource.postgres")
-    @Profile("postgres")
     public DataSource postgresDataSource() {
         return DataSourceBuilder.create().type(HikariDataSource.class).build();
     }
 
     @Bean(name = "mysqlDataSource")
     @ConfigurationProperties("app.datasource.mysql")
+    @Profile("mysql")
     public DataSource mysqlDataSource() {
         return DataSourceBuilder.create().type(HikariDataSource.class).build();
     }
 
     @Primary
     @Bean(name = "postgresJdbcTemplate")
-    @Profile("postgres")
     public JdbcTemplate postgresJdbcTemplate(@Qualifier("postgresDataSource") DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
 
     @Bean(name = "mysqlJdbcTemplate")
+    @Profile("mysql")
     public JdbcTemplate mysqlJdbcTemplate(@Qualifier("mysqlDataSource") DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }

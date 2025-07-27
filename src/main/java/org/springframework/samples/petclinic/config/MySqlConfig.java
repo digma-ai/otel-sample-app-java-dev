@@ -23,7 +23,7 @@ import java.util.Map;
     transactionManagerRef = "mysqlTransactionManager",
     basePackages = {"org.springframework.samples.petclinic.patientrecords"}
 )
-@Profile({"postgres", "mysql"})
+@Profile("mysql")
 public class MySqlConfig {
 
     @Bean(name = "mysqlEntityManagerFactory")

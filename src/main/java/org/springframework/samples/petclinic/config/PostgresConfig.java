@@ -28,7 +28,7 @@ import java.util.Map;
         "org.springframework.samples.petclinic.clinicactivity"
     }
 )
-@Profile("postgres")
+@Profile({"postgres", "mysql"})
 public class PostgresConfig {
 
     @Primary

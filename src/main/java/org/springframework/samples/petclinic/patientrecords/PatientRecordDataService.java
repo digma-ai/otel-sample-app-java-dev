@@ -24,7 +24,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@Profile({"postgres", "mysql"})
+@Profile("mysql")
 public class PatientRecordDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(PatientRecordDataService.class);

@@ -22,7 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
 @RequestMapping("/api/patient-records")
-@Profile({"postgres", "mysql"})
+@Profile("mysql")
 public class PatientRecordController implements InitializingBean {
 
     private static final Logger logger = LoggerFactory.getLogger(PatientRecordController.class);
