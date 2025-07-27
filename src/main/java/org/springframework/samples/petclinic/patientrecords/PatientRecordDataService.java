@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.samples.petclinic.model.PatientRecord;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -33,6 +35,9 @@ public class PatientRecordDataService {
     private final PatientRecordRepository repository;
     private final JdbcTemplate mysqlJdbcTemplate;
     private final PlatformTransactionManager mysqlTransactionManager;
+
+    @Value("${app.patient.records.auto-init:false}")
+    private boolean autoInitEnabled;
 
     // List of veterinary treatment types
     private static final List<String> TREATMENT_TYPES = List.of(
@@ -53,6 +58,35 @@ public class PatientRecordDataService {
         this.repository = repository;
         this.mysqlJdbcTemplate = mysqlJdbcTemplate;
         this.mysqlTransactionManager = mysqlTransactionManager;
+    }
+
+    @PostConstruct
+    public void initializeSchema() {
+        if (autoInitEnabled) {
+            logger.info("Auto-initialization enabled - creating patient_records table if it doesn't exist");
+            try {
+                String createTableSql = 
+                    "CREATE TABLE IF NOT EXISTS patient_records (" +
+                    "id INT AUTO_INCREMENT PRIMARY KEY," +
+                    "treatment_type VARCHAR(255) NOT NULL," +
+                    "patient_weight INT NOT NULL," +
+                    "visit_date TIMESTAMP NOT NULL," +
+                    "treatment_completed BOOLEAN NOT NULL," +
+                    "medical_notes TEXT," +
+                    "INDEX idx_treatment_type (treatment_type)," +
+                    "INDEX idx_visit_date (visit_date)," +
+                    "INDEX idx_treatment_completed (treatment_completed)" +
+                    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+                
+                mysqlJdbcTemplate.execute(createTableSql);
+                logger.info("Patient records table initialized successfully");
+            } catch (Exception e) {
+                logger.error("Failed to initialize patient records schema", e);
+                throw new RuntimeException("Failed to initialize patient records schema: " + e.getMessage(), e);
+            }
+        } else {
+            logger.info("Auto-initialization disabled - patient_records table must be created manually");
+        }
     }
 
     @Transactional("mysqlTransactionManager")
