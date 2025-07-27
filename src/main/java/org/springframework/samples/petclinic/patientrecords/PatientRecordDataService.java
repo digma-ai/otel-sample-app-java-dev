@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.samples.petclinic.model.PatientRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -23,6 +24,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@Profile({"postgres", "mysql"})
 public class PatientRecordDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(PatientRecordDataService.class);

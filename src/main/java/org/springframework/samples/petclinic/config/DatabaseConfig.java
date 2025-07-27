@@ -7,16 +7,19 @@ import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
 
 @Configuration
+@Profile({"postgres", "mysql"})
 public class DatabaseConfig {
 
     @Primary
     @Bean(name = "postgresDataSource")
     @ConfigurationProperties("app.datasource.postgres")
+    @Profile("postgres")
     public DataSource postgresDataSource() {
         return DataSourceBuilder.create().type(HikariDataSource.class).build();
     }
@@ -29,6 +32,7 @@ public class DatabaseConfig {
 
     @Primary
     @Bean(name = "postgresJdbcTemplate")
+    @Profile("postgres")
     public JdbcTemplate postgresJdbcTemplate(@Qualifier("postgresDataSource") DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
