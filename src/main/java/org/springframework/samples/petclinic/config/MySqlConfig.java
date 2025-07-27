@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
@@ -22,6 +23,7 @@ import java.util.Map;
     transactionManagerRef = "mysqlTransactionManager",
     basePackages = {"org.springframework.samples.petclinic.patientrecords"}
 )
+@Profile("mysql")
 public class MySqlConfig {
 
     @Bean(name = "mysqlEntityManagerFactory")

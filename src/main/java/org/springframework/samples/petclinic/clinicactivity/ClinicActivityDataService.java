@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.samples.petclinic.model.ClinicActivityLog;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.HashMap;
 
 @Service
+@Profile({"postgres", "mysql"})
 public class ClinicActivityDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinicActivityDataService.class);
