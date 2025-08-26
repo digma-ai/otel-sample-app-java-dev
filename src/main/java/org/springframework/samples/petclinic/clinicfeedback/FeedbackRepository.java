@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.samples.petclinic.model.ClinicFeedback;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -32,7 +31,30 @@ public class FeedbackRepository
 		this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 	}
 
-	public void save(ClinicFeedback feedback) {
+	public void saveMultiple(List<ClinicFeedback> feedbacks) {
+		for (ClinicFeedback feedback : feedbacks){
+			HttpResponse<String> response;
+			try {
+				var json = objectMapper.writeValueAsString(feedback);
+				var request = HttpRequest.newBuilder()
+					.uri(URI.create(this.apiBaseUrl))
+					.header("Content-Type", "application/json")
+					.POST(HttpRequest.BodyPublishers.ofString(json))
+					.build();
+
+				response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+			} catch (Exception e) {
+				throw new RuntimeException("Error during saving feedbacks", e);
+			}
+
+			if (response.statusCode() != 200 && response.statusCode() != 201) {
+				throw new RuntimeException("Failed to save feedbacks to flaskdb: " + response.body());
+			}
+		}
+	}
+
+	public void saveSingle(ClinicFeedback feedback) {
 		HttpResponse<String> response;
 		try {
 			String json = objectMapper.writeValueAsString(feedback);
@@ -44,11 +66,11 @@ public class FeedbackRepository
 
 			response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 		} catch (Exception e) {
-			throw new RuntimeException("Error during saving feedbacks", e);
+			throw new RuntimeException("Error during saving feedback", e);
 		}
 
 		if (response.statusCode() != 200 && response.statusCode() != 201) {
-			throw new RuntimeException("Failed to save feedbacks to flaskdb: " + response.body());
+			throw new RuntimeException("Failed to save feedback to flaskdb: " + response.body());
 		}
 	}
 

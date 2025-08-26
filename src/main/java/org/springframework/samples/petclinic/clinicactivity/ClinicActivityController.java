@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,6 +23,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
 @RequestMapping("/api/clinic-activity")
+@Profile({"postgres", "mysql"})
 public class ClinicActivityController implements InitializingBean {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinicActivityController.class);
@@ -37,7 +40,7 @@ public class ClinicActivityController implements InitializingBean {
     @Autowired
     public ClinicActivityController(ClinicActivityDataService dataService,
                                     ClinicActivityLogRepository repository,
-                                    JdbcTemplate jdbcTemplate) {
+                                    @Qualifier("postgresJdbcTemplate") JdbcTemplate jdbcTemplate) {
         this.dataService = dataService;
         this.repository = repository;
         this.jdbcTemplate = jdbcTemplate;
@@ -158,6 +161,39 @@ public class ClinicActivityController implements InitializingBean {
 		} catch (Exception e) {
 			logger.error("Error during clinic activity log recreation and population", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during data recreation and population: " + e.getMessage());
+		}
+	}
+
+	@PostMapping("/io-intensive-load")
+	public ResponseEntity<String> createIOIntensiveLoad(@RequestParam(name = "duration", defaultValue = "5") int durationMinutes,
+														@RequestParam(name = "threads", defaultValue = "6") int numThreads,
+														@RequestParam(name = "limit", defaultValue = "400000") int limit) {
+		logger.warn("Received request to create I/O INTENSIVE LOAD for {} minutes with {} threads and {} limit - This will MAX OUT disk I/O operations!",
+					durationMinutes, numThreads, limit);
+		if (durationMinutes <= 0) {
+			return ResponseEntity.badRequest().body("Duration must be a positive integer.");
+		}
+		if (durationMinutes > 60) {
+			return ResponseEntity.badRequest().body("Duration too high for I/O intensive load - maximum 60 minutes to prevent storage overload.");
+		}
+		if (numThreads <= 0) {
+			return ResponseEntity.badRequest().body("Number of threads must be a positive integer.");
+		}
+		if (numThreads > 20) {
+			return ResponseEntity.badRequest().body("Too many threads for I/O intensive load - maximum 20 to prevent system crash.");
+		}
+		if (limit <= 0) {
+			return ResponseEntity.badRequest().body("Limit must be a positive integer.");
+		}
+		if (limit > 1000000) {
+			return ResponseEntity.badRequest().body("Limit too high for I/O intensive load - maximum 1,000,000 to prevent excessive resource usage.");
+		}
+		try {
+			dataService.createIOIntensiveLoad(durationMinutes, numThreads, limit);
+			return ResponseEntity.ok("Successfully completed I/O INTENSIVE LOAD for " + durationMinutes + " minutes with " + numThreads + " threads and " + limit + " limit - Disk I/O was maxed out!");
+		} catch (Exception e) {
+			logger.error("Error during I/O intensive load", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during I/O intensive load: " + e.getMessage());
 		}
 	}
 

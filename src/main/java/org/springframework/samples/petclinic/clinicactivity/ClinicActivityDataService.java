@@ -4,6 +4,8 @@ import com.github.javafaker.Faker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.samples.petclinic.model.ClinicActivityLog;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -25,9 +27,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Random;
+import java.util.Map;
+import java.util.HashMap;
 
 @Service
+@Profile({"postgres", "mysql"})
 public class ClinicActivityDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinicActivityDataService.class);
@@ -47,12 +56,13 @@ public class ClinicActivityDataService {
             "Emergency Alert", "Consultation Note", "Follow-up Reminder"
     );
     private final Random random = new Random();
+    private final ExecutorService executorService = Executors.newFixedThreadPool(8);
 
     @Autowired
     public ClinicActivityDataService(ClinicActivityLogRepository repository,
-                                     JdbcTemplate jdbcTemplate,
-                                     DataSource dataSource,
-                                     PlatformTransactionManager transactionManager) {
+                                     @Qualifier("postgresJdbcTemplate") JdbcTemplate jdbcTemplate,
+                                     @Qualifier("postgresDataSource") DataSource dataSource,
+                                     @Qualifier("postgresTransactionManager") PlatformTransactionManager transactionManager) {
         this.repository = repository;
         this.jdbcTemplate = jdbcTemplate;
         this.dataSource = dataSource;
@@ -199,5 +209,107 @@ public class ClinicActivityDataService {
         }
         String escaped = value.replace("\"", "\"\"").replace("\\", "\\\\");
         return '"' + escaped + '"';
+    }
+
+    public void createIOIntensiveLoad(int durationMinutes, int numThreads, int limit) {
+        logger.warn("Starting I/O INTENSIVE load test for {} minutes with {} threads and {} limit - This will MAX OUT disk I/O operations!",
+                   durationMinutes, numThreads, limit);
+        long startTime = System.currentTimeMillis();
+        long endTime = startTime + (durationMinutes * 60 * 1000L);
+
+        try {
+            AtomicInteger globalOperationCount = new AtomicInteger(0);
+            List<Thread> threads = new ArrayList<>();
+
+            logger.info("Creating {} I/O intensive threads with {} record limit per query...", numThreads, limit);
+
+            // Create I/O intensive threads
+            for (int t = 0; t < numThreads; t++) {
+                final int threadId = t;
+                Thread ioThread = new Thread(() -> {
+                    try {
+                        executeIOIntensiveThread(threadId, endTime, globalOperationCount, limit);
+                    } catch (Exception e) {
+                        logger.error("Error in I/O intensive thread {}", threadId, e);
+                    }
+                });
+
+                ioThread.setName("IOIntensiveThread-" + threadId);
+                threads.add(ioThread);
+            }
+
+            // Start all threads
+            logger.info("Starting all {} I/O intensive threads...", numThreads);
+            for (Thread thread : threads) {
+                thread.start();
+            }
+
+            // Wait for all threads to complete
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.warn("Interrupted while waiting for I/O thread: {}", thread.getName());
+                }
+            }
+
+            long actualEndTime = System.currentTimeMillis();
+            logger.warn("Completed I/O INTENSIVE load test in {} ms with {} threads and {} limit. Total operations: {}",
+                (actualEndTime - startTime), numThreads, limit, globalOperationCount.get());
+
+        } catch (Exception e) {
+            logger.error("Error during I/O intensive load test", e);
+            throw new RuntimeException("Error during I/O intensive load test: " + e.getMessage(), e);
+        }
+    }
+
+    private void executeIOIntensiveThread(int threadId, long endTime, AtomicInteger globalOperationCount, int limit) {
+        Random random = new Random();
+        Faker faker = new Faker(new Locale("en-US"));
+        int localOperationCount = 0;
+
+        logger.info("I/O Thread {} starting I/O intensive operations with {} record limit...", threadId, limit);
+
+        while (System.currentTimeMillis() < endTime) {
+			try {
+                        // LARGE SEQUENTIAL SCAN - Forces full table scan I/O
+                        jdbcTemplate.queryForList(
+                            "SET work_mem = '512MB';" +
+								"SELECT id, activity_type, numeric_value, event_timestamp, payload " +
+                            "FROM clinic_activity_logs " +
+                            "WHERE LENGTH(payload) > 100 " +
+							"ORDER BY random()" +
+                            "LIMIT " + limit);
+
+
+                localOperationCount++;
+                int currentGlobalCount = globalOperationCount.incrementAndGet();
+
+                // Log progress every 100 operations per thread
+                if (localOperationCount % 100 == 0) {
+                    long remainingTime = (endTime - System.currentTimeMillis()) / 1000;
+                    logger.info("I/O Thread {} completed {} operations (Global: {}). Time remaining: {}s",
+                        threadId, localOperationCount, currentGlobalCount, remainingTime);
+                }
+
+                // No sleep - continuous I/O operations for maximum I/O pressure
+                // But avoid overwhelming the system with a tiny yield
+                if (localOperationCount % 50 == 0) {
+                    Thread.yield();
+                }
+
+            } catch (Exception e) {
+                logger.error("Error in I/O operation for thread {}", threadId, e);
+                try {
+                    Thread.sleep(10); // Brief pause on error
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+
+        logger.info("I/O Thread {} completed {} total I/O operations", threadId, localOperationCount);
     }
 }
