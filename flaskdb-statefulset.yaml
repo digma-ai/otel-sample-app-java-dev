@@ -21,7 +21,7 @@ spec:
     whenDeleted: Retain
     whenScaled: Retain
   podManagementPolicy: OrderedReady
-  replicas: 0
+  replicas: 1  # Updated from 0 to 1 to ensure database availability
   revisionHistoryLimit: 10
   selector:
     matchLabels:
