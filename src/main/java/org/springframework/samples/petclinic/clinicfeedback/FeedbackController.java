@@ -7,14 +7,18 @@ import org.springframework.samples.petclinic.model.ClinicFeedback;
 import org.springframework.samples.petclinic.owner.Owner;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/clinic-feedback")
-public class FeedbackController {
+@RequestMapping("/api/clinic-feedback")public class FeedbackController {
 
 	private final FeedbackService service;
+	private static final Logger log = LoggerFactory.getLogger(FeedbackController.class);
 
 	public FeedbackController(FeedbackService service) {
 		this.service = service;
@@ -29,9 +33,15 @@ public class FeedbackController {
 		return results;
 	}
 
-	@GetMapping("count")
-	public String count() {
-		return String.valueOf(service.count());
+	@GetMapping(value = "/count", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<Long> count() {
+		try {
+			long count = this.service.count();
+			return ResponseEntity.ok().body(count);
+		} catch (Exception e) {
+			log.error("Error retrieving feedback count", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+		}
 	}
 
 	@PostMapping("clear")
@@ -51,8 +61,7 @@ public class FeedbackController {
 			return ResponseEntity.internalServerError().body(ex.getMessage());
 		}
 	}
-
-	@PostMapping("add")
+}@PostMapping("add")
 	public ResponseEntity<String> addFeedback(@RequestBody ClinicFeedback newFeedback, BindingResult result) {
 		if(result.hasErrors())
 			return ResponseEntity.badRequest().body("Failed to parsed request");
