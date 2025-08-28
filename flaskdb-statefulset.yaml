@@ -21,14 +21,13 @@ spec:
     whenDeleted: Retain
     whenScaled: Retain
   podManagementPolicy: OrderedReady
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       app.kubernetes.io/component: petclinic-flaskdb
   serviceName: petclinic-flaskdb
-  template:
-    metadata:
+  template:    metadata:
       creationTimestamp: null
       labels:
         app.kubernetes.io/component: petclinic-flaskdb
@@ -43,22 +42,39 @@ spec:
         - -c
         env:
         - name: DATA_DIR
-          value: /data/db
+           value: /data/db
         image: python:3.11-slim
         imagePullPolicy: IfNotPresent
         name: flask-container
         ports:
         - containerPort: 27017
           protocol: TCP
-        resources: {}
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 10
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /app
           name: flask-source
         - mountPath: /data/db
-          name: flaskdb-data
-      dnsPolicy: ClusterFirst
+          name: flaskdb-data      dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
