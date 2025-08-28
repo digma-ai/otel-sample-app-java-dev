@@ -13,7 +13,7 @@ metadata:
   labels:
     app.kubernetes.io/component: petclinic-flaskdb
   name: petclinic-flaskdb
-  namespace: pet-agentic-dev
+   namespace: pet-agentic-dev
   resourceVersion: "168531759"
   uid: 9afe42b9-5e54-456f-8d1d-c361cf6facc6
 spec:
@@ -21,7 +21,7 @@ spec:
     whenDeleted: Retain
     whenScaled: Retain
   podManagementPolicy: OrderedReady
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
