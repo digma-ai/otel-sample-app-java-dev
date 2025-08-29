@@ -21,14 +21,13 @@ spec:
     whenDeleted: Retain
     whenScaled: Retain
   podManagementPolicy: OrderedReady
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       app.kubernetes.io/component: petclinic-flaskdb
   serviceName: petclinic-flaskdb
-  template:
-    metadata:
+  template:    metadata:
       creationTimestamp: null
       labels:
         app.kubernetes.io/component: petclinic-flaskdb
