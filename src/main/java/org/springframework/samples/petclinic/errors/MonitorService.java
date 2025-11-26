@@ -9,8 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.InvalidPropertiesFormatException;
 
-@Component
-public class MonitorService implements SmartLifecycle {
+@Componentpublic class MonitorService implements SmartLifecycle {
 
 	private boolean running = false;
 	private Thread backgroundThread;
@@ -19,12 +18,21 @@ public class MonitorService implements SmartLifecycle {
 
 	@Override
 	public void start() {
+		if (running) {
+			return; // Already running
+		}
+
+		// Environment check
+		String env = System.getProperty("spring.profiles.active", "default");
+		if (!isValidEnvironment(env)) {
+			throw new IllegalStateException("Invalid environment for monitor service: " + env);
+		}
+
 		var otelTracer = openTelemetry.getTracer("MonitorService");
 
 		running = true;
 		backgroundThread = new Thread(() -> {
 			while (running) {
-
 				try {
 					Thread.sleep(5000);
 				} catch (InterruptedException e) {
@@ -33,7 +41,6 @@ public class MonitorService implements SmartLifecycle {
 				Span span = otelTracer.spanBuilder("monitor").startSpan();
 
 				try {
-
 					System.out.println("Background service is running...");
 					monitor();
 				} catch (Exception e) {
@@ -50,11 +57,42 @@ public class MonitorService implements SmartLifecycle {
 		System.out.println("Background service started.");
 	}
 
-	private void monitor() throws InvalidPropertiesFormatException {
-		Utils.throwException(IllegalStateException.class,"monitor failure");
+	private boolean isValidEnvironment(String env) {
+		return env != null && (env.equals("production") || env.equals("staging") || env.equals("default"));
+	}private void monitor() throws InvalidPropertiesFormatException {
+		// State validation
+		if (!running) {
+			throw new IllegalStateException("Monitor service is not running");
+		}
+
+		// Environment check
+		String env = System.getProperty("env", "prod");
+		try {
+			// Environment specific handling
+			switch(env) {
+				case "dev":
+					// More lenient monitoring for dev
+					System.out.println("Monitoring in dev mode");
+					break;
+				case "prod":
+					// Stricter monitoring for prod
+					System.out.println("Monitoring in prod mode");
+					break;
+				default:
+					throw new IllegalStateException("Unknown environment: " + env);
+			}
+		} catch (Exception e) {
+			// Recovery mechanism
+			try {
+				System.out.println("Attempting recovery...");
+				running = true; // Reset state
+				// Additional recovery logic here
+			} catch (Exception recoveryEx) {
+				running = false;
+				throw new InvalidPropertiesFormatException("Recovery failed: " + recoveryEx.getMessage());
+			}
+		}
 	}
-
-
 
 	@Override
 	public void stop() {
@@ -72,6 +110,6 @@ public class MonitorService implements SmartLifecycle {
 
 	@Override
 	public boolean isRunning() {
-		return false;
+		return running;
 	}
 }
