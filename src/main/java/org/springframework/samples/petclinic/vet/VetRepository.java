@@ -21,8 +21,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.Repository;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
 import java.util.Collection;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
 
 /**
  * Repository class for <code>Vet</code> domain objects All method names are compliant
@@ -34,7 +37,9 @@ import java.util.Collection;
  * @author Juergen Hoeller
  * @author Sam Brannen
  * @author Michael Isvy
- */
+ */import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
+
 public interface VetRepository extends Repository<Vet, Integer> {
 
 	/**
@@ -43,6 +48,7 @@ public interface VetRepository extends Repository<Vet, Integer> {
 	 */
 	@Transactional(readOnly = true)
 	@Cacheable("vets")
+	@EntityGraph(attributePaths = {"specialties"})
 	Collection<Vet> findAll() throws DataAccessException;
 
 	/**
@@ -53,6 +59,11 @@ public interface VetRepository extends Repository<Vet, Integer> {
 	 */
 	@Transactional(readOnly = true)
 	@Cacheable("vets")
+	@EntityGraph(attributePaths = {"specialties"})
 	Page<Vet> findAll(Pageable pageable) throws DataAccessException;
+
+	@EntityGraph(attributePaths = {"specialties"})
+	@Query("SELECT DISTINCT vet FROM Vet vet LEFT JOIN FETCH vet.specialties")
+	Collection<Vet> findAllWithSpecialties() throws DataAccessException;
 
 }
