@@ -19,10 +19,11 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
+import java.util.Collection;import java.util.Collection;
 
 /**
  * Repository class for <code>Vet</code> domain objects All method names are compliant
@@ -34,25 +35,48 @@ import java.util.Collection;
  * @author Juergen Hoeller
  * @author Sam Brannen
  * @author Michael Isvy
- */
-public interface VetRepository extends Repository<Vet, Integer> {
+ */public interface VetRepository extends Repository<Vet, Integer> {
 
-	/**
-	 * Retrieve all <code>Vet</code>s from the data store.
-	 * @return a <code>Collection</code> of <code>Vet</code>s
-	 */
-	@Transactional(readOnly = true)
-	@Cacheable("vets")
-	Collection<Vet> findAll() throws DataAccessException;
+    /**
+     * Retrieve all <code>Vet</code>s from the data store.
+     * @return a <code>Collection</code> of <code>Vet</code>s
+     */
+    @Query("SELECT DISTINCT vet FROM Vet vet LEFT JOIN FETCH vet.specialties")
+    @Transactional(readOnly = true)
+    @Cacheable("vets")
+    Collection<Vet> findAll() throws DataAccessException;
 
-	/**
-	 * Retrieve all <code>Vet</code>s from data store in Pages
-	 * @param pageable
-	 * @return
-	 * @throws DataAccessException
-	 */
-	@Transactional(readOnly = true)
-	@Cacheable("vets")
-	Page<Vet> findAll(Pageable pageable) throws DataAccessException;
+    /**
+     * Retrieve all <code>Vet</code>s with specialties from the data store.
+     * @return a <code>Collection</code> of <code>Vet</code>s
+     */
+    @Query("SELECT DISTINCT vet FROM Vet vet LEFT JOIN FETCH vet.specialties")
+    @Transactional(readOnly = true)
+    @Cacheable("vets")
+    Collection<Vet> findAllWithSpecialties() throws DataAccessException;
+
+    /**
+     * Retrieve all <code>Vet</code>s from data store in Pages
+     * @param pageable
+     * @return
+     * @throws DataAccessException
+     */
+    @Query(value = "SELECT DISTINCT vet FROM Vet vet LEFT JOIN FETCH vet.specialties",
+           countQuery = "SELECT COUNT(DISTINCT vet) FROM Vet vet")
+    @Transactional(readOnly = true)
+    @Cacheable("vets")
+    Page<Vet> findAll(Pageable pageable) throws DataAccessException;
+
+    /**
+     * Retrieve all <code>Vet</code>s with specialties from data store in Pages
+     * @param pageable
+     * @return
+     * @throws DataAccessException
+     */
+    @Query(value = "SELECT DISTINCT vet FROM Vet vet LEFT JOIN FETCH vet.specialties",
+           countQuery = "SELECT COUNT(DISTINCT vet) FROM Vet vet")
+    @Transactional(readOnly = true)
+    @Cacheable("vets")
+    Page<Vet> findAllWithSpecialties(Pageable pageable) throws DataAccessException;
 
 }
