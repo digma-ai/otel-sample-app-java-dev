@@ -13,16 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springframework.samples.petclinic.vet;
-
-import org.springframework.cache.annotation.Cacheable;
+package org.springframework.samples.petclinic.vet;import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Collection;
+import org.springframework.transaction.annotation.Transactional;import java.util.Collection;
 
 /**
  * Repository class for <code>Vet</code> domain objects All method names are compliant
@@ -34,8 +31,7 @@ import java.util.Collection;
  * @author Juergen Hoeller
  * @author Sam Brannen
  * @author Michael Isvy
- */
-public interface VetRepository extends Repository<Vet, Integer> {
+ */import org.springframework.data.jpa.repository.Query;public interface VetRepository extends Repository<Vet, Integer> {
 
 	/**
 	 * Retrieve all <code>Vet</code>s from the data store.
@@ -54,5 +50,15 @@ public interface VetRepository extends Repository<Vet, Integer> {
 	@Transactional(readOnly = true)
 	@Cacheable("vets")
 	Page<Vet> findAll(Pageable pageable) throws DataAccessException;
+
+	@Query("SELECT v FROM Vet v LEFT JOIN FETCH v.specialties")
+	@Transactional(readOnly = true)
+	@Cacheable("vets")
+	List<Vet> findAllWithSpecialties() throws DataAccessException;
+
+	@Query("SELECT v FROM Vet v LEFT JOIN FETCH v.specialties")
+	@Transactional(readOnly = true)
+	@Cacheable("vets")
+	Page<Vet> findAllWithSpecialties(Pageable pageable) throws DataAccessException;
 
 }
