@@ -19,10 +19,12 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <!-- Important for reproducible builds. Update using e.g. ./mvnw versions:set -DnewVersion=... -->
+    <project.build.outputTimestamp>2023-05-10T07:42:50Z</project.reporting.outputEncoding>
+    <!-- Important for reproducible builds. Update using e.g. ./mvnw versions:set -DnewVersion=... -->
     <project.build.outputTimestamp>2023-05-10T07:42:50Z</project.build.outputTimestamp>
 
     <!-- Web dependencies -->
-    <webjars-bootstrap.version>5.2.3</webjars-bootstrap.version>
+    <webjars-bootstrap.version>5.3.2</webjars-bootstrap.version>
     <webjars-font-awesome.version>4.7.0</webjars-font-awesome.version>
 
     <checkstyle.version>10.11.0</checkstyle.version>
@@ -33,6 +35,13 @@
     <nohttp-checkstyle.version>0.0.11</nohttp-checkstyle.version>
     <spring-format.version>0.0.39</spring-format.version>
     <otel.version>1.32.0</otel.version>
+
+  </properties>
+
+  <dependencies>
+    <!-- Spring and Spring Boot dependencies -->
+    <dependency>
+      <groupId>org.springframework.boot</otel.version>
 
   </properties>
 
@@ -60,6 +69,10 @@
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-thymeleaf</artifactId></artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-thymeleaf</artifactId>
     </dependency>
     <dependency>
@@ -82,6 +95,13 @@
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- caching -->
+    <dependency>
+      <groupId>javax.cache</groupId>
+      <artifactId>cache-api</artifactId></artifactId>
       <scope>runtime</scope>
     </dependency>
 
@@ -120,6 +140,11 @@
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-docker-compose</artifactId>
       <scope>test</scope>
     </dependency>
@@ -137,6 +162,11 @@
     <dependency>
       <groupId>jakarta.xml.bind</groupId>
       <artifactId>jakarta.xml.bind-api</artifactId>
+    </dependency>
+
+    <!-- OTEL deps, Enables instrumentation using @WithSpan-->
+    <dependency>
+      <groupId>io.opentelemetry.instrumentation</artifactId>
     </dependency>
 
     <!-- OTEL deps, Enables instrumentation using @WithSpan-->
@@ -168,6 +198,10 @@
         <artifactId>testcontainers-bom</artifactId>
         <version>${testcontainers.version}</version>
         <type>pom</type>
+        <scope>import</scope></groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
         <scope>import</scope>
       </dependency>
     </dependencies>
@@ -189,6 +223,11 @@
                 <requireJavaVersion>
                   <message>This build requires at least Java ${java.version}, update your JVM, and run the build again</message>
                   <version>${java.version}</version>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions></version>
                 </requireJavaVersion>
               </rules>
             </configuration>
@@ -216,6 +255,8 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
+            <version>${checkstyle.version}</version></groupId>
+            <artifactId>checkstyle</artifactId>
             <version>${checkstyle.version}</version>
           </dependency>
           <dependency>
@@ -235,6 +276,8 @@
             <phase>validate</phase>
             <configuration>
               <configLocation>src/checkstyle/nohttp-checkstyle.xml</configLocation>
+              <suppressionsLocation>src/checkstyle/nohttp-checkstyle-suppressions.xml</suppressionsLocation>
+              <sourceDirectories>${basedir}</configLocation>
               <suppressionsLocation>src/checkstyle/nohttp-checkstyle-suppressions.xml</suppressionsLocation>
               <sourceDirectories>${basedir}</sourceDirectories>
               <includes>**/*</includes>
@@ -286,6 +329,12 @@
             <phase>prepare-package</phase>
             <goals>
               <goal>report</goal>
+            </goals></execution>
+          <execution>
+            <id>report</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>report</goal>
             </goals>
           </execution>
         </executions>
@@ -308,6 +357,14 @@
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+    </license>
+  </licenses>
+
+  <repositories>
+    <repository>
+      <id>spring-snapshots</id>
+      <name>Spring Snapshots</name>
       <url>https://www.apache.org/licenses/LICENSE-2.0</url>
     </license>
   </licenses>
@@ -343,6 +400,12 @@
     <pluginRepository>
       <id>spring-milestones</id>
       <name>Spring Milestones</name>
+      <url>https://repo.spring.io/milestone</enabled>
+      </snapshots>
+    </pluginRepository>
+    <pluginRepository>
+      <id>spring-milestones</id>
+      <name>Spring Milestones</name>
       <url>https://repo.spring.io/milestone</url>
       <snapshots>
         <enabled>false</enabled>
@@ -369,6 +432,11 @@
                 <configuration>
                   <artifactItems>
                     <artifactItem>
+                      <groupId>org.webjars.npm</goal>
+                </goals>
+                <configuration>
+                  <artifactItems>
+                    <artifactItem>
                       <groupId>org.webjars.npm</groupId>
                       <artifactId>bootstrap</artifactId>
                       <version>${webjars-bootstrap.version}</version>
@@ -389,6 +457,9 @@
                 <phase>generate-resources</phase>
                 <?m2e execute onConfiguration,onIncremental?>
                 <goals>
+                  <goal>compile</phase>
+                <?m2e execute onConfiguration,onIncremental?>
+                <goals>
                   <goal>compile</goal>
                 </goals>
               </execution>
@@ -399,6 +470,15 @@
               <includePath>${project.build.directory}/webjars/META-INF/resources/webjars/bootstrap/${webjars-bootstrap.version}/scss/</includePath>
             </configuration>
           </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>m2e</id>
+      <activation>
+        <property>
+          <name>m2e.version</name>
+        </property></plugin>
         </plugins>
       </build>
     </profile>
@@ -425,6 +505,8 @@
                       <pluginExecutionFilter>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-checkstyle-plugin</artifactId>
+                        <versionRange>[1,)</groupId>
+                        <artifactId>maven-checkstyle-plugin</artifactId>
                         <versionRange>[1,)</versionRange>
                         <goals>
                           <goal>check</goal>
@@ -445,6 +527,10 @@
                       </pluginExecutionFilter>
                       <action>
                         <ignore />
+                      </action></goals>
+                      </pluginExecutionFilter>
+                      <action>
+                        <ignore />
                       </action>
                     </pluginExecution>
                     <pluginExecution>
@@ -461,6 +547,13 @@
                       </action>
                     </pluginExecution>
                   </pluginExecutions>
+                </lifecycleMappingMetadata>
+              </configuration>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile></pluginExecutions>
                 </lifecycleMappingMetadata>
               </configuration>
             </plugin>
