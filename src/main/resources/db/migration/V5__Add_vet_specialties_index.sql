@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_vet_specialties_vet_specialty ON vet_specialties(vet_id, specialty_id);
