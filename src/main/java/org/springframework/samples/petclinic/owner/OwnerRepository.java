@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springframework.samples.petclinic.owner;
-
-import java.util.List;import org.springframework.data.domain.Page;
+package org.springframework.samples.petclinic.owner;import java.util.List;import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
@@ -32,9 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @author Juergen Hoeller
  * @author Sam Brannen
  * @author Michael Isvy
- */public interface OwnerRepository extends Repository<Owner, Integer> {
-
-	/**
+ */public interface OwnerRepository extends Repository<Owner, Integer> {/**
 	 * Retrieve all {@link PetType}s from the data store.
 	 * @return a Collection of {@link PetType}s.
 	 */
@@ -52,9 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 	@Query("SELECT DISTINCT owner FROM Owner owner left join fetch owner.pets WHERE owner.lastName LIKE :lastName% ")
 	@Transactional(readOnly = true)
-	Page<Owner> findByLastName(@Param("lastName") String lastName, Pageable pageable);
-
-	/**
+	Page<Owner> findByLastName(@Param("lastName") String lastName, Pageable pageable);/**
 	 * Retrieve all {@link Owner}s from the data store with their pets.
 	 * @return a Collection of {@link Owner}s.
 	 */
@@ -77,9 +71,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 	@Query("SELECT SIZE(o.pets) FROM Owner o WHERE o.id = :id")
 	@Transactional(readOnly = true)
-	int countPets(int id);
-
-	/**
+	int countPets(int id);/**
 	 * Returns all the owners from data store
 	 **/
 	@Query("SELECT owner FROM Owner owner left join fetch owner.pets")

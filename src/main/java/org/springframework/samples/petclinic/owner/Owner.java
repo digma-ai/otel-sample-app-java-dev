@@ -16,9 +16,7 @@
 package org.springframework.samples.petclinic.owner;
 
 import java.util.ArrayList;
-import java.util.List;
-
-import org.springframework.core.style.ToStringCreator;
+import java.util.List;import org.springframework.core.style.ToStringCreator;
 import org.springframework.samples.petclinic.model.Person;
 import org.springframework.util.Assert;import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -49,9 +47,7 @@ import jakarta.validation.constraints.NotBlank;
 
 	@Column(name = "city")
 	@NotBlank
-	private String city;
-
-	@Column(name = "telephone")
+	private String city;@Column(name = "telephone")
 	@NotBlank
 	@Digits(fraction = 0, integer = 10)
 	private String telephone;
@@ -88,9 +84,7 @@ import jakarta.validation.constraints.NotBlank;
 
 	public List<Pet> getPets() {
 		return this.pets;
-	}
-
-	public void addPet(Pet pet) {
+	}public void addPet(Pet pet) {
 		if (pet.isNew()) {
 			getPets().add(pet);
 		}
@@ -101,9 +95,7 @@ import jakarta.validation.constraints.NotBlank;
 	 */
 	public Pet getPet(String name) {
 		return getPet(name, false);
-	}
-
-	/**
+	}/**
 	 * Return the Pet with the given id, or null if none found for this Owner.
 	 * @param id to test
 	 * @return a pet if pet id is already in use
@@ -134,9 +126,7 @@ import jakarta.validation.constraints.NotBlank;
 			}
 		}
 		return null;
-	}
-
-	@Override
+	}@Override
 	public String toString() {
 		return new ToStringCreator(this).append("id", this.getId())
 			.append("new", this.isNew())
