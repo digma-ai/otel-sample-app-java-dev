@@ -92,6 +92,13 @@ import jakarta.validation.constraints.NotBlank;
 
 	public void addPet(Pet pet) {
 		if (pet.isNew()) {
+			// Check for duplicate ID if ID is set
+			if (pet.getId() != null) {
+				Pet existingPet = getPet(pet.getId());
+				if (existingPet != null) {
+					throw new IllegalStateException("Pet with ID " + pet.getId() + " already exists");
+				}
+			}
 			getPets().add(pet);
 		}
 	}/**
